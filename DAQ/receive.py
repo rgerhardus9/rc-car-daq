@@ -6,7 +6,7 @@ import struct
 import subprocess as sp
 
 ip_addr = input("IP Addr: ")
-SSH_CMD = ["ssh", f"rcCar@{ip_addr}", "~/rc-car-daq/DAQ/out/daq"]
+SSH_CMD = ["ssh", f"rccar@{ip_addr}", "~/rc-car-daq/DAQ/out/daq"]
 # SSH_CMD = ['type', 'data.bin']
 CSV_FILE = "DAQ.csv"
 LOG_FILE = "LOG.csv"

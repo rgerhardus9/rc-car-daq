@@ -1,0 +1,3 @@
+# Ignore changes to the log files
+DAQ/DAQ.csv
+DAQ/LOG.csv
