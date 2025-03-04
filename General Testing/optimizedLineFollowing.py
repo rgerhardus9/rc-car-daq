@@ -6,6 +6,7 @@ cap = cv2.VideoCapture(0)
 cameraCenter = cap.get(cv2.CAP_PROP_FRAME_WIDTH) / 2
 steeringFactor = 5
 neutralPWM = 15
+p = float(10**2)
 
 # Apply HSV thresholding for neon pink detection
 def get_mask(frame):
@@ -32,7 +33,12 @@ def get_pwm(mask, min_area=500):  # Set a minimum area threshold
         if cv2.contourArea(largest_contour) > min_area:  # Ignore small contours
             x, y, w, h = cv2.boundingRect(largest_contour)
             center_x = x + w // 2
-            pwm = ((center_x - cameraCenter) / cameraCenter) * steeringFactor + neutralPWM
+            steerAmount = ((center_x - cameraCenter) / cameraCenter) * steeringFactor
+            if steerAmount > 0:
+                steerAmountRounded = int(steerAmount * p + 0.5) / p
+            else:
+                steerAmountRounded = int(steerAmount * p - 0.5) / p
+            pwm = steerAmountRounded + neutralPWM
             return pwm
     return -1  # No line detected, kill program
 
