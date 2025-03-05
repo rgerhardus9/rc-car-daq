@@ -5,7 +5,7 @@ import numpy as np
 cap = cv2.VideoCapture(0)
 cameraCenter = cap.get(cv2.CAP_PROP_FRAME_WIDTH) / 2
 steeringFactor = 5
-neutralPWM = 15
+neutralDuty = 15
 p = float(10**2)
 
 # Apply HSV thresholding for neon pink detection
@@ -23,7 +23,7 @@ def get_mask(frame):
     return mask
 
 # Return PWM based on horizontal distance of line to camera centerline
-def get_pwm(mask, min_area=500):  # Set a minimum area threshold
+def get_duty_cycle(mask, min_area=500):  # Set a minimum area threshold
     # Find contours
     contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
 
@@ -38,8 +38,8 @@ def get_pwm(mask, min_area=500):  # Set a minimum area threshold
                 steerAmountRounded = int(steerAmount * p + 0.5) / p
             else:
                 steerAmountRounded = int(steerAmount * p - 0.5) / p
-            pwm = steerAmountRounded + neutralPWM
-            return pwm
+            duty_cycle = steerAmountRounded + neutralDuty
+            return duty_cycle
     return -1  # No line detected, kill program
 
 while True:
@@ -48,7 +48,7 @@ while True:
         break
     
     mask = get_mask(frame)
-    PWM = get_pwm(mask)
+    steering_duty_cycle = get_duty_cycle(mask)
 
     # Code to upload pwm to pi goes here (Rauls code)
 
