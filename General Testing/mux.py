@@ -1,161 +1,162 @@
+#! /usr/bin/env python
+
+# Implementation of reading and sending control signal to MUX
+# Currently not doing in parallel, rather in series with some latency introduced
+# Also: Need some time to determine DC? - Prolly at least 50 ms to be accurate
+
 import lgpio
 import time
 
 # GPIO pin definitions
-INPUT_PIN = 6  # Change to your input pin number
+INPUT_PIN = 6
+SELECT_PIN = 25 # LOW = Y0 (transmitter), HIGH = Y1 (generated PWM)
+PWM_GENERATE_PIN = 13
+
 GPIO_CHIP = 0
 PERIOD = 0.01   # 10 ms
-# GPIO setup - CHANGE INPUT AND OUTPUT HERE
-chip = lgpio.gpiochip_open(GPIO_CHIP)
-lgpio.gpio_claim_input(chip, INPUT_PIN, lgpio.SET_PULL_DOWN)    # Set pull down so it's low when no signal is present
-# lgpio.gpio_claim_output(chip, INPUT_PIN)
+FREQUENCY = 100 # Hz
 
-# Testing
-# lgpio.gpio_write(chip, INPUT_PIN, 1)
+# GPIO initialization
+HANDLE = lgpio.gpiochip_open(GPIO_CHIP)   # Always do this
+# SELECT
+lgpio.gpio_claim_output(HANDLE, SELECT_PIN)  # Claim pin as OUTPUT
+lgpio.gpio_write(HANDLE, SELECT_PIN, 1)     # Init to HIGH
+# PWM INPUT/READ
+lgpio.gpio_claim_input(HANDLE, INPUT_PIN, lgpio.SET_PULL_DOWN)  # Claim pin as INPUT
+# PWM Generation
+lgpio.gpio_claim_output(HANDLE, PWM_GENERATE_PIN)    # Set pull down so it's low when no signal is present
+
+
+
 
 # duration currently in seconds
-def read_pwm_duty_cycle(INPUT_PIN, chip, duration = 1.0):
-    # Initialize times
-    high_time = 0
-    low_time = 0
-    start_time = time.time()    # time in seconds since epoch
+def read_pwm_duty_cycle(chip, INPUT_PIN, duration = 0.3):   # 0.5 second delay before it will switch the MUX select
 
-    # Initialize level and time
-    previous_level = lgpio.gpio_read(chip, INPUT_PIN)
-    print(f"Previous level: {previous_level}")
+    print("Measuring PWM duty cycle...")
+    # Run until DC is outside of range
+    init_time = time.time()    # Safety feature doing this instead of while(True)
+    while(time.time() - init_time < 5.0):
+        # Initialize times
+        high_time = 0
+        low_time = 0
+        start_time = time.time()    # time in seconds since epoch
 
-    pulse_start = time.time()
-    switchoff = 0
-    try:
-        while (time.time() - start_time) < duration:
-            # print(f"Time: {(time.time() - start_time):.5f}")
+        # Initialize level and time
+        previous_level = lgpio.gpio_read(chip, INPUT_PIN)
+        print(f"Previous level: {previous_level}")
 
-            # This should work with the input changing - reading high or low of the PWM
-            current_level = lgpio.gpio_read(chip, INPUT_PIN)
+        pulse_start = time.time()
+        try:
+            while (time.time() - start_time) < duration:
+                # print(f"Time: {(time.time() - start_time):.5f}")
+
+                # This should work with the input changing - reading high or low of the PWM
+                current_level = lgpio.gpio_read(chip, INPUT_PIN)       
+                print(f"Current level: {current_level}")
             
-            
-            print(f"Current level: {current_level}")
+                # Detect level change
+                if current_level != previous_level:
+                    pulse_end = time.time()
+                    pulse_duration = pulse_end - pulse_start
 
-            
-            # Testing - switching pin between low and hi - don't do when reading - we shouldn't have to write at all
-            # Works with input and output configurations
-            # DC should be about 50% - the time.sleep() works well to help that so that samples are taken at even intervals
-            '''
-            if switchoff == 0:
-                lgpio.gpio_write(chip, INPUT_PIN, 1)    
-                switchoff = 1
-                time.sleep(0.0001)    # Makes much more accurate for testing
-            else:
-                lgpio.gpio_write(chip, INPUT_PIN, 0)    
-                switchoff = 0
-                time.sleep(0.0001)
-            '''
-            
-
-
-
-            # Detect level change
-            if current_level != previous_level:
-                pulse_end = time.time()
-                pulse_duration = pulse_end - pulse_start
-
-                if previous_level == 1:
-                    high_time += pulse_duration
-                else:
-                    low_time += pulse_duration
+                    if previous_level == 1:
+                        high_time += pulse_duration
+                    else:
+                        low_time += pulse_duration
+                    
+                    # Update state
+                    previous_level = current_level
+                    pulse_start = pulse_end
                 
-                # Update state
-                previous_level = current_level
-                pulse_start = pulse_end
+                time.sleep(0.00001)  # For even increments
+
+        finally:
+            total_time = high_time + low_time
             
-            time.sleep(0.00001)  # For even increments
+            # No division by zero
+            if total_time == 0:
+                return 0
+            
+            # Duty cycle in percent
+            dc = (high_time / total_time) * 100
+            print(f"DC: {dc}")
 
-    finally:
-        lgpio.gpiochip_close(chip)
+            # Change MUX signal or continue - do this in or out of function?
+            if (dc < 14.0 or dc > 16.0):
+                lgpio.gpio_write(chip, SELECT_PIN, 0)     # Select signal to LOW = PWM transmitter signal
+                return 0
+            else:
+                continue
     
-    total_time = high_time + low_time
-
-    # No division by zero
-    if total_time == 0:
-        return 0
-    
-    # Duty cycle in percent
-    dc = (high_time / total_time) * 100
-    return dc
+    return 1
 
 
-state = 'N'
-prevState = 'N'
-running = True
+"""
+Sets up PWM output on a GPIO pin.
 
-def setup_pwm(chip, pin, frequency, duty_cycle):
-    """
-    Sets up PWM output on a GPIO pin.
-    
-    Args:
-        chip (int): GPIO chip (0 for the Raspberry Pi main GPIO).
-        pin (int): GPIO pin number (BCM mode).
-        frequency (int): Frequency of the PWM in Hz.
-        duty_cycle (float): Duty cycle in percentage (0.0 to 100.0).
-    Returns:
-        handle: PWM handle.
-    """
-    handle = lgpio.gpiochip_open(chip)  # Open GPIO chip
-    lgpio.gpio_claim_output(handle, pin)  # Claim pin as output
-    lgpio.tx_pwm(handle, pin, frequency, duty_cycle)  # Start PWM
-    return handle
-
-def main():
-    chip = 0  # GPIO chip (default is 0 for the Raspberry Pi main GPIO)
-    pin = 13  # GPIO pin to output PWM (BCM numbering)
-    frequency = 100  # Frequency in Hz
-    duty_cycle = 15.0  # Duty cycle in percentage
-
-    handle = setup_pwm(chip, pin, frequency, duty_cycle)
+Args:
+    chip (int): GPIO chip (0 for the Raspberry Pi main GPIO).
+    pin (int): GPIO pin number (BCM mode).
+    frequency (int): Frequency of the PWM in Hz.
+    duty_cycle (float): Duty cycle in percentage (0.0 to 100.0).
+Returns:
+    Nothing.
+"""
+def send_pwm(chip, PWM_GENERATE_PIN, FREQUENCY, duty_cycle, duration=5.0):
+    # Init to neutral/stop
+    # Initialize PWM at neutral
+    lgpio.tx_pwm(chip, PWM_GENERATE_PIN, FREQUENCY, 15.0)
     time.sleep(2)
 
-    try:
-        print(f"Generating PWM on GPIO {pin} with {frequency}Hz and {duty_cycle}% duty cycle.")
-        print("Press Ctrl+C to stop.")
+    # Write/increment PWM
+    start_time = time.time()
+    while (time.time() - start_time < duration):
+        try:
+            print(f"Generating PWM on GPIO {PWM_GENERATE_PIN} with {FREQUENCY}Hz and {duty_cycle}% duty cycle.")
+            print("Press Ctrl+C to stop.")
 
-        
+            # Write pwm
+            lgpio.tx_pwm(chip, PWM_GENERATE_PIN, FREQUENCY, duty_cycle)  # Start PWM
 
-        duty_cycle = 10
-        count = 0
-        #while count < 300:
-                #count += 1
-                #lgpio.tx_pwm(handle, pin, frequency, duty_cycle)
-                #print(f"Sending {duty_cycle}")
-                #time.sleep(0.1)
-        while (duty_cycle < 20.0):
-            duty_cycle += 0.5
-            print(f"Duty cycle incremented to {duty_cycle}")
-            lgpio.gpio_claim_output(handle, pin)  # Claim pin as output - Only have to do once
-            lgpio.tx_pwm(handle, pin, frequency, duty_cycle)  # Start PWM
-            time.sleep(0.5)   # Sleep for 1 second
+            # Read PWM and change MUX if needed
+            select = read_pwm_duty_cycle(chip, INPUT_PIN)
+
+            if (select == 0):
+                print("Returning 0 from send_pwm() function")
+                return 0
+            else:
+                continue
             
-        
 
-        #lgpio.tx_pwm(handle, pin, frequency, 10.3)  # Start PWM
-        #print("Reverse/break")
-        #time.sleep(1)   # Sleep for 1 second
-        lgpio.tx_pwm(handle, pin, frequency, 15.0)  # Start PWM
-        print("Back to neutral")
-        time.sleep(2)
+        except KeyboardInterrupt:
+            print("\nStopping PWM and cleaning up GPIO.")
+    
+    # None of this happens if we have taken manual control over (select == 0)
 
-    except KeyboardInterrupt:
-        print("\nStopping PWM and cleaning up GPIO.")
-    finally:
-        lgpio.tx_pwm(handle, pin, 0, 0)  # Stop PWM
-        lgpio.gpiochip_close(handle)  # Close GPIO chip
+    # Return to neutral
+    lgpio.tx_pwm(chip, PWM_GENERATE_PIN, FREQUENCY, 15.0)  # Return to neutral
+    time.sleep(2.0)
 
+    # Stop sending any PWM signal
+    lgpio.tx_pwm(chip, PWM_GENERATE_PIN, 0, 0)
 
-
-
-
+    # Don't close GPIO chip
+    # Give control back to transmitter either way
+    return 0
 
 
 if __name__ == "__main__":
-    print("Measuring PWM duty cycle...")
-    duty_cycle = read_pwm_duty_cycle(INPUT_PIN, chip)
-    print(f"After 1 second, duty cycle is: {duty_cycle:.2f}")
+
+    dc_to_send = 15.4
+
+    print(f"Sending a PWM value of {dc_to_send} percent to pin {PWM_GENERATE_PIN}.")
+    send_pwm(HANDLE, PWM_GENERATE_PIN, FREQUENCY, dc_to_send)
+    
+    # Close the chip
+    print("Exited function and closing the chip.")
+    lgpio.gpiochip_close(HANDLE)   # Always do this
+
+
+
+
+
