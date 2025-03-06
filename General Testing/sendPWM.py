@@ -83,7 +83,7 @@ def main():
                 break
             # if throttle_duty_cycle < 0:
             #     break
-
+            print(steering_duty_cycle)
             lgpio.tx_pwm(gpioChipHandle, steeringPin, frequency, steering_duty_cycle)
             # Commented out because we haven't determined how we are gonna generate the throttle duty cycle yet
             #lgpio.tx_pwm(gpioChipHandle, throttlePin, frequency, throttle_duty_cycle)
