@@ -6,7 +6,7 @@ import numpy as np
 import cv2
 
 # Initialize camera
-cap = cv2.VideoCapture(0)
+cap = cv2.VideoCapture(-1)
 cameraCenter = cap.get(cv2.CAP_PROP_FRAME_WIDTH) / 2
 steeringFactor = 5  # Defines the min/max duty cycle range or "steering aggresssivness"
 neutralDuty = 15  # Duty cycle in which the car goes straight
@@ -74,12 +74,14 @@ def main():
         while True:
             ret, frame = cap.read()
             if not ret:
+                print("Failed to open camera")
                 break
             
             mask = get_mask(frame)
             steering_duty_cycle = get_duty_cycle(mask)
 
             if steering_duty_cycle < 0:
+                print("Failed to get duty cycle")
                 break
             # if throttle_duty_cycle < 0:
             #     break
