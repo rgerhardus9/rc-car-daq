@@ -43,7 +43,7 @@ def read_pwm_duty_cycle(chip, INPUT_PIN, duration = 0.3):   # 0.5 second delay b
 
         # Initialize level and time
         previous_level = lgpio.gpio_read(chip, INPUT_PIN)
-        print(f"Previous level: {previous_level}")
+        # print(f"Previous level: {previous_level}")
 
         pulse_start = time.time()
         try:
@@ -52,7 +52,7 @@ def read_pwm_duty_cycle(chip, INPUT_PIN, duration = 0.3):   # 0.5 second delay b
 
                 # This should work with the input changing - reading high or low of the PWM
                 current_level = lgpio.gpio_read(chip, INPUT_PIN)       
-                print(f"Current level: {current_level}")
+                # print(f"Current level: {current_level}")
             
                 # Detect level change
                 if current_level != previous_level:
