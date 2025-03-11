@@ -101,6 +101,7 @@ def main():
             # Commented out because we haven't determined how we are gonna generate the throttle duty cycle yet
             # if throttle_duty_cycle != old_throttle_duty_cycle:
                 # lgpio.tx_pwm(gpioChipHandle, throttlePin, frequency, throttle_duty_cycle)
+            time.sleep(1/frequency)
 
 
         
