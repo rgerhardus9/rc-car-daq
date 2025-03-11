@@ -64,7 +64,7 @@ def get_duty_cycle(mask, prev_dc):  # Set a minimum area threshold
             # Only update dc if it is different from before
             if (abs(duty_cycle - prev_dc) > 0.2):
                 lgpio.tx_pwm(HANDLE, steeringPin, frequency, duty_cycle) 
-                lgpio.tx_pwm(HANDLE, throttlePin, frequency, duty_cycle) # Duplicate for reading PWM
+                # lgpio.tx_pwm(HANDLE, throttlePin, frequency, duty_cycle) # Duplicate for reading PWM
                 return duty_cycle
             else:
                 return prev_dc
@@ -75,11 +75,11 @@ def main():
 
     # Claim pins 12 & 13 as output
     lgpio.gpio_claim_output(HANDLE, steeringPin)
-    lgpio.gpio_claim_output(HANDLE, throttlePin)
+    # lgpio.gpio_claim_output(HANDLE, throttlePin)
 
     # Set Throttle and Steering to Neutral State (duty cycle of 15%)
     lgpio.tx_pwm(HANDLE, steeringPin, frequency, 15)
-    lgpio.tx_pwm(HANDLE, throttlePin, frequency, 15)
+    # lgpio.tx_pwm(HANDLE, throttlePin, frequency, 15)
 
     try:
         print(f"Generating PWM on GPIO {steeringPin} (steering) & {throttlePin} (throttle) at {frequency}Hz")
@@ -112,7 +112,7 @@ def main():
     finally:
         # Stop PWM
         lgpio.tx_pwm(HANDLE, steeringPin, 0, 0)
-        lgpio.tx_pwm(HANDLE, throttlePin, 0, 0)
+        # lgpio.tx_pwm(HANDLE, throttlePin, 0, 0)
 
         # Close GPIO chip
         lgpio.gpiochip_close(HANDLE)
