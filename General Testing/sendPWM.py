@@ -7,14 +7,19 @@ import cv2
 
 # Initialize camera
 cap = cv2.VideoCapture(0)
+cap = cv2.VideoCapture(0)
 cameraCenter = cap.get(cv2.CAP_PROP_FRAME_WIDTH) / 2
 steeringFactor = 5  # Defines the min/max duty cycle range or "steering aggresssivness"
-neutralDuty = 15  # Duty cycle in which the car goes straight
-p = float(10**2)  # Floating point to handle rounding using integer math instead of the slower round(num, 2)
+p = float(10**1)  # Floating point to handle rounding using integer math instead of the slower round(num, 2)
 
 steeringPin = 12  # GPIO pin to output PWM for steering control 
 throttlePin = 13  # GPIO pin to output PWM for throttle control 
 frequency = 100  # Frequency in Hz
+
+# Duty cycle values for updating PWM and sending PWM less often
+neutralDuty = 15  # Duty cycle in which the car goes straight
+old_steering_duty_cycle = 0 # Values to compare current duty cycle to send PWM if there is a difference
+old_throttle_duty_cycle = 0
 
 # Apply HSV thresholding for neon pink detection
 def get_mask(frame):
@@ -82,15 +87,20 @@ def main():
             
             mask = get_mask(frame)
             steering_duty_cycle = get_duty_cycle(mask)
+            # throttle_duty_cycle = something
 
             if steering_duty_cycle < 0:
                 print("Failed to get duty cycle")
-            
-        
-            print(steering_duty_cycle)
-            lgpio.tx_pwm(gpioChipHandle, steeringPin, frequency, steering_duty_cycle)
+                break
+            # if throttle_duty_cycle < 0:
+            #     break
+
+            if steering_duty_cycle != old_steering_duty_cycle:
+                print(steering_duty_cycle)
+                lgpio.tx_pwm(gpioChipHandle, steeringPin, frequency, steering_duty_cycle)
             # Commented out because we haven't determined how we are gonna generate the throttle duty cycle yet
-            #lgpio.tx_pwm(gpioChipHandle, throttlePin, frequency, throttle_duty_cycle)
+            # if throttle_duty_cycle != old_throttle_duty_cycle:
+                # lgpio.tx_pwm(gpioChipHandle, throttlePin, frequency, throttle_duty_cycle)
 
 
         

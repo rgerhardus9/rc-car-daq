@@ -2,7 +2,7 @@ import cv2
 import numpy as np
 
 # Initialize camera
-cap = cv2.VideoCapture(0)
+cap = cv2.VideoCapture(1)
 cameraCenter = cap.get(cv2.CAP_PROP_FRAME_WIDTH) / 2
 steeringFactor = 5
 neutralDuty = 15
@@ -45,14 +45,18 @@ def get_duty_cycle(mask, min_area=500):  # Set a minimum area threshold
 while True:
     ret, frame = cap.read()
     if not ret:
+        print("Failed to open camera")
         break
     
     mask = get_mask(frame)
     steering_duty_cycle = get_duty_cycle(mask)
 
+    cv2.imshow("Camera", frame)
+
     # Code to upload pwm to pi goes here (Rauls code)
 
-    if PWM == -1:
+    if steering_duty_cycle < 0:
+        print("Failed to read duty cycle")
         break
 
 # Release resources
