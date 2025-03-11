@@ -16,6 +16,9 @@ steeringPin = 12  # GPIO pin to output PWM for steering control
 throttlePin = 13  # GPIO pin to output PWM for throttle control 
 frequency = 100  # Frequency in Hz
 
+
+# Always do this
+HANDLE = lgpio.gpiochip_open(0)
 # Apply HSV thresholding for neon pink detection
 def get_mask(frame):
     hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
@@ -59,6 +62,7 @@ def get_duty_cycle(mask, curr_dc):  # Set a minimum area threshold
 
             # Only update dc if it is different from before
             if (abs(duty_cycle - curr_dc) > 0.2):
+                lgpio.tx_pwm(HANDLE, steeringPin, frequency, duty_cycle) 
                 return duty_cycle
             else:
                 return curr_dc
@@ -66,22 +70,21 @@ def get_duty_cycle(mask, curr_dc):  # Set a minimum area threshold
     return -1  # No line detected, kill program
 
 def main():
-    gpioChipHandle = lgpio.gpiochip_open(0)  # Open GPIO chip
 
     # Claim pins 12 & 13 as output
-    lgpio.gpio_claim_output(gpioChipHandle, steeringPin)
-    lgpio.gpio_claim_output(gpioChipHandle, throttlePin)
+    lgpio.gpio_claim_output(HANDLE, steeringPin)
+    lgpio.gpio_claim_output(HANDLE, throttlePin)
 
     # Set Throttle and Steering to Neutral State (duty cycle of 15%)
-    lgpio.tx_pwm(gpioChipHandle, steeringPin, frequency, 15)
-    lgpio.tx_pwm(gpioChipHandle, throttlePin, frequency, 15)
+    lgpio.tx_pwm(HANDLE, steeringPin, frequency, 15)
+    lgpio.tx_pwm(HANDLE, throttlePin, frequency, 15)
 
     try:
         print(f"Generating PWM on GPIO {steeringPin} (steering) & {throttlePin} (throttle) at {frequency}Hz")
         print("Press Ctrl+C to stop.")
         time.sleep(2)
 
-        steering_duty_cycle = 15.0
+        previous_duty_cycle = 15.0
 
         while True:
             ret, frame = cap.read()
@@ -90,16 +93,15 @@ def main():
                 break
             
             mask = get_mask(frame)
-            steering_duty_cycle = get_duty_cycle(mask, steering_duty_cycle)
+            steering_duty_cycle = get_duty_cycle(mask, previous_duty_cycle)
 
             if steering_duty_cycle < 0:
                 print("Failed to get duty cycle")
             
         
             print(steering_duty_cycle)
-            lgpio.tx_pwm(gpioChipHandle, steeringPin, frequency, steering_duty_cycle)
             # Commented out because we haven't determined how we are gonna generate the throttle duty cycle yet
-            #lgpio.tx_pwm(gpioChipHandle, throttlePin, frequency, throttle_duty_cycle)
+            #lgpio.tx_pwm(HANDLE, throttlePin, frequency, throttle_duty_cycle)
 
 
         
@@ -107,11 +109,11 @@ def main():
         print("\nStopping PWM and cleaning up GPIO.")
     finally:
         # Stop PWM
-        lgpio.tx_pwm(gpioChipHandle, steeringPin, 0, 0)
-        lgpio.tx_pwm(gpioChipHandle, throttlePin, 0, 0)
+        lgpio.tx_pwm(HANDLE, steeringPin, 0, 0)
+        lgpio.tx_pwm(HANDLE, throttlePin, 0, 0)
 
         # Close GPIO chip
-        lgpio.gpiochip_close(gpioChipHandle)
+        lgpio.gpiochip_close(HANDLE)
 
 if __name__ == "__main__":
     main()
