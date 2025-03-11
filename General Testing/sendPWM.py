@@ -7,7 +7,6 @@ import cv2
 
 # Initialize camera
 cap = cv2.VideoCapture(0)
-cap.set(cv2.CAP_PROP_FPS, 15)  # Limit FPS to 15
 cameraCenter = cap.get(cv2.CAP_PROP_FRAME_WIDTH) / 2
 steeringFactor = 5  # Defines the min/max duty cycle range or "steering aggresssivness"
 neutralDuty = 15  # Duty cycle in which the car goes straight
