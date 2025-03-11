@@ -34,7 +34,7 @@ def get_mask(frame):
     return mask
 
 # Return PWM based on horizontal distance of line to camera centerline
-def get_duty_cycle(mask, curr_dc):  # Set a minimum area threshold
+def get_duty_cycle(mask, prev_dc):  # Set a minimum area threshold
     # Find contours
     contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
 
@@ -61,11 +61,11 @@ def get_duty_cycle(mask, curr_dc):  # Set a minimum area threshold
             duty_cycle = steerAmountRounded + neutralDuty
 
             # Only update dc if it is different from before
-            if (abs(duty_cycle - curr_dc) > 0.2):
+            if (abs(duty_cycle - prev_dc) > 0.2):
                 lgpio.tx_pwm(HANDLE, steeringPin, frequency, duty_cycle) 
                 return duty_cycle
             else:
-                return curr_dc
+                return prev_dc
 
     return -1  # No line detected, kill program
 
@@ -84,7 +84,7 @@ def main():
         print("Press Ctrl+C to stop.")
         time.sleep(2)
 
-        previous_duty_cycle = 15.0
+        steering_duty_cycle = 15.0
 
         while True:
             ret, frame = cap.read()
@@ -93,7 +93,7 @@ def main():
                 break
             
             mask = get_mask(frame)
-            steering_duty_cycle = get_duty_cycle(mask, previous_duty_cycle)
+            steering_duty_cycle = get_duty_cycle(mask, steering_duty_cycle)
 
             if steering_duty_cycle < 0:
                 print("Failed to get duty cycle")
