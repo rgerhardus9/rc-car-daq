@@ -31,7 +31,7 @@ def get_mask(frame):
     return mask
 
 # Return PWM based on horizontal distance of line to camera centerline
-def get_duty_cycle(mask):  # Set a minimum area threshold
+def get_duty_cycle(mask, curr_dc):  # Set a minimum area threshold
     # Find contours
     contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
 
@@ -51,12 +51,18 @@ def get_duty_cycle(mask):  # Set a minimum area threshold
             else:
                 steerAmountRounded = int(steerAmount * p - 0.5) / p
 
+            print(f"steerAmountRounded: {steerAmountRounded}")
+
+
             # Default is -5 to 5 + 15 = (10 to 20)%
             duty_cycle = steerAmountRounded + neutralDuty
 
+            # Only update dc if it is different from before
+            if (abs(duty_cycle - curr_dc) > 0.2):
+                return duty_cycle
+            else:
+                return curr_dc
 
-
-            return duty_cycle
     return -1  # No line detected, kill program
 
 def main():
@@ -74,6 +80,9 @@ def main():
         print(f"Generating PWM on GPIO {steeringPin} (steering) & {throttlePin} (throttle) at {frequency}Hz")
         print("Press Ctrl+C to stop.")
         time.sleep(2)
+
+        steering_duty_cycle = 15.0
+
         while True:
             ret, frame = cap.read()
             if not ret:
@@ -81,7 +90,7 @@ def main():
                 break
             
             mask = get_mask(frame)
-            steering_duty_cycle = get_duty_cycle(mask)
+            steering_duty_cycle = get_duty_cycle(mask, steering_duty_cycle)
 
             if steering_duty_cycle < 0:
                 print("Failed to get duty cycle")
