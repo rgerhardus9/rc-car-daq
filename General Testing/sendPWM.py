@@ -6,7 +6,7 @@ import numpy as np
 import cv2
 
 # Initialize camera
-cap = cv2.VideoCapture(-1)
+cap = cv2.VideoCapture(0)
 cameraCenter = cap.get(cv2.CAP_PROP_FRAME_WIDTH) / 2
 steeringFactor = 5  # Defines the min/max duty cycle range or "steering aggresssivness"
 neutralDuty = 15  # Duty cycle in which the car goes straight
@@ -53,6 +53,9 @@ def get_duty_cycle(mask):  # Set a minimum area threshold
 
             # Default is -5 to 5 + 15 = (10 to 20)%
             duty_cycle = steerAmountRounded + neutralDuty
+
+
+
             return duty_cycle
     return -1  # No line detected, kill program
 
@@ -82,9 +85,8 @@ def main():
 
             if steering_duty_cycle < 0:
                 print("Failed to get duty cycle")
-                break
-            # if throttle_duty_cycle < 0:
-            #     break
+            
+        
             print(steering_duty_cycle)
             lgpio.tx_pwm(gpioChipHandle, steeringPin, frequency, steering_duty_cycle)
             # Commented out because we haven't determined how we are gonna generate the throttle duty cycle yet

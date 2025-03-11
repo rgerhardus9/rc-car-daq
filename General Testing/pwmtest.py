@@ -25,6 +25,11 @@ def setup_pwm(chip, pin, frequency, duty_cycle):
     lgpio.tx_pwm(handle, pin, frequency, duty_cycle)  # Start PWM
     return handle
 
+
+
+
+
+
 def main():
     chip = 0  # GPIO chip (default is 0 for the Raspberry Pi main GPIO)
     pin = 13  # GPIO pin to output PWM (BCM numbering)
@@ -40,26 +45,35 @@ def main():
 
         
 
-        duty_cycle = 10
-        count = 0
-        #while count < 300:
-                #count += 1
-                #lgpio.tx_pwm(handle, pin, frequency, duty_cycle)
-                #print(f"Sending {duty_cycle}")
-                #time.sleep(0.1)
-        while (duty_cycle < 20.0):
-            duty_cycle += 0.5
-            print(f"Duty cycle incremented to {duty_cycle}")
-            lgpio.gpio_claim_output(handle, pin)  # Claim pin as output - Only have to do once
-            lgpio.tx_pwm(handle, pin, frequency, duty_cycle)  # Start PWM
-            time.sleep(0.5)   # Sleep for 1 second
-            
+        duty_cycle = 15.0
         
+        # START - Test full range of steering
+        '''
+        while (duty_cycle < 20.0):
+            duty_cycle += 0.05
+            print(f"Duty cycle incremented to {duty_cycle}")
+            lgpio.tx_pwm(handle, pin, frequency, duty_cycle)  # Start PWM
+            time.sleep(0.05)   # Sleep for 1 second
+        while (duty_cycle > 10.0):
+            duty_cycle -= 0.05
+            print(f"Duty cycle decremented to {duty_cycle}")
+            lgpio.tx_pwm(handle, pin, frequency, duty_cycle)  # Start PWM
+            time.sleep(0.05)   # Sleep for 1 second
+        '''
+        # END - Test full range of steering
+        
+        # START - Test forward throttle
+        while (duty_cycle < 16.5):
+            duty_cycle += 0.05
+            print(f"Duty cycle incremented to {duty_cycle}")
+            lgpio.tx_pwm(handle, pin, frequency, duty_cycle)  # Start PWM
+            time.sleep(0.05)   # Sleep for 1 second
+        # END - Test forward throttle
 
         #lgpio.tx_pwm(handle, pin, frequency, 10.3)  # Start PWM
         #print("Reverse/break")
         #time.sleep(1)   # Sleep for 1 second
-        lgpio.tx_pwm(handle, pin, frequency, 15.0)  # Start PWM
+        lgpio.tx_pwm(handle, pin, frequency, 15.0)  # Reset to neutral
         print("Back to neutral")
         time.sleep(2)
 
