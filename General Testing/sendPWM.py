@@ -47,8 +47,12 @@ def get_duty_cycle(mask):  # Set a minimum area threshold
             x, y, w, h = cv2.boundingRect(largest_contour)
 
             center_x = x + w // 2  # Only the x position determines the duty cycle calculation
+
+            ratioToCenter = (center_x - cameraCenter) / cameraCenter # Ratio of steering relative to frame size (-1 to 1)
+
+            steeringFactor = 5*abs(ratioToCenter)
             
-            steerAmount = ((center_x - cameraCenter) / cameraCenter) * steeringFactor  # Ratio of steering relative to frame size (-1 to 1)
+            steerAmount =  ratioToCenter * steeringFactor  # Ratio of steering relative to frame size (-1 to 1)
 
             # Rounding is faster through integer manipulation
             if steerAmount > 0:
