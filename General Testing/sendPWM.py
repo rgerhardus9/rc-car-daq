@@ -1,12 +1,19 @@
 #! /usr/bin/env python
 
+# Working code to foloow line with manual steering control as of 3/11
+
 import lgpio
 import time
 import numpy as np
 import cv2
 
+import threading
+
 # Initialize camera
 cap = cv2.VideoCapture(0)
+# cap.set(cv2.CAP_PROP_FRAME_WIDTH, 60)  # Reduce width to 320 pixels
+# cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 40)  # Reduce height to 240 pixels
+# cap.set(cv2.CAP_PROP_FPS, 10)  # Reduce FPS to 15
 cameraCenter = cap.get(cv2.CAP_PROP_FRAME_WIDTH) / 2
 fx,fy = 0, int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT)/3)
 fw,fh = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH)), int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT)-fy)
@@ -27,7 +34,15 @@ def get_mask(frame):
     hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
     lower_pink = np.array([140, 30, 170], np.uint8)  # Adjust for lighting conditions
     upper_pink = np.array([180, 255, 255], np.uint8)
+    lower_pink = np.array([140, 30, 170], np.uint8)  # Adjust for lighting conditions
+    upper_pink = np.array([180, 255, 255], np.uint8)
     mask = cv2.inRange(hsv, lower_pink, upper_pink)
+
+    # Debugging: Check if there are any non-zero pixels in the mask
+    if np.sum(mask) == 0:
+        print("Mask has no non-zero pixels.")
+    else:
+        print(f"Mask has {np.sum(mask)} non-zero pixels.")
     
     # Apply morphological operations to remove noise
     kernel = np.ones((5, 5), np.uint8)
@@ -37,7 +52,7 @@ def get_mask(frame):
     return mask
 
 # Return PWM based on horizontal distance of line to camera centerline
-def get_duty_cycle(mask):  # Set a minimum area threshold
+def get_duty_cycle(mask, prev_dc):  # Set a minimum area threshold
     # Find contours
     contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
 
@@ -61,27 +76,47 @@ def get_duty_cycle(mask):  # Set a minimum area threshold
             else:
                 steerAmountRounded = int(steerAmount * p - 0.5) / p
 
+            # print(f"steerAmountRounded: {steerAmountRounded}")
+
+
             # Default is -5 to 5 + 15 = (10 to 20)%
             duty_cycle = steerAmountRounded + neutralDuty
 
             return duty_cycle
     return -1  # No line detected, kill program
 
-def main():
-    gpioChipHandle = lgpio.gpiochip_open(0)  # Open GPIO chip
+def pwm_thread():
+    global steering_duty_cycle
+    while True:
+        with lock:
+            lgpio.tx_pwm(HANDLE, steeringPin, frequency, steering_duty_cycle)
+            print(f"Thread running with steering duty cycle: {steering_duty_cycle}")
+        time.sleep(0.02)  # Small delay to keep CPU usage low - write duty cycle every 20 ms
 
+
+def main():
+
+    global steering_duty_cycle
     # Claim pins 12 & 13 as output
-    lgpio.gpio_claim_output(gpioChipHandle, steeringPin)
-    lgpio.gpio_claim_output(gpioChipHandle, throttlePin)
+    lgpio.gpio_claim_output(HANDLE, steeringPin)
+    # lgpio.gpio_claim_output(HANDLE, throttlePin)
+
+    pwm_thread_instance = threading.Thread(target=pwm_thread, daemon=True)
+    pwm_thread_instance.start()
+
+    
 
     # Set Throttle and Steering to Neutral State (duty cycle of 15%)
-    lgpio.tx_pwm(gpioChipHandle, steeringPin, frequency, 15)
-    lgpio.tx_pwm(gpioChipHandle, throttlePin, frequency, 15)
+    # lgpio.tx_pwm(HANDLE, steeringPin, frequency, 15) # Believe this is done by the thread now
+    # lgpio.tx_pwm(HANDLE, throttlePin, frequency, 15)
+
+    print(f"Generating PWM on GPIO {steeringPin} (steering) & {throttlePin} (throttle) at {frequency}Hz")
+    print("Press Ctrl+C to stop.")
+    time.sleep(2)
+
+    prev_duty_cycle = steering_duty_cycle
 
     try:
-        print(f"Generating PWM on GPIO {steeringPin} (steering) & {throttlePin} (throttle) at {frequency}Hz")
-        print("Press Ctrl+C to stop.")
-        time.sleep(2)
         while True:
             ret, frame = cap.read()
 
@@ -117,11 +152,15 @@ def main():
         print("\nStopping PWM and cleaning up GPIO.")
     finally:
         # Stop PWM
-        lgpio.tx_pwm(gpioChipHandle, steeringPin, 0, 0)
-        lgpio.tx_pwm(gpioChipHandle, throttlePin, 0, 0)
+        lgpio.tx_pwm(HANDLE, steeringPin, 0, 0)
+        # lgpio.tx_pwm(HANDLE, throttlePin, 0, 0)
 
         # Close GPIO chip
-        lgpio.gpiochip_close(gpioChipHandle)
+        lgpio.gpiochip_close(HANDLE)
+
+
+
+
 
 if __name__ == "__main__":
     main()
