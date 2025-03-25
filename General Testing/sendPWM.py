@@ -36,8 +36,8 @@ HANDLE = lgpio.gpiochip_open(0)
 # Apply HSV thresholding for neon pink detection
 def get_mask(frame):
     hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
-    lower_pink = np.array([140, 20, 210], np.uint8)  # Adjust for lighting conditions
-    upper_pink = np.array([175, 255, 255], np.uint8)
+    lower_pink = np.array([140, 30, 170], np.uint8)  # Adjust for lighting conditions
+    upper_pink = np.array([180, 255, 255], np.uint8)
     mask = cv2.inRange(hsv, lower_pink, upper_pink)
 
     # Debugging: Check if there are any non-zero pixels in the mask
