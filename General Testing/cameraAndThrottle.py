@@ -28,6 +28,7 @@ cameraCenter = width / 2
 steeringFactor = 4  # Defines the min/max duty cycle range or "steering aggresssivness"
 neutralDuty = 15  # Duty cycle in which the car goes straight
 p = float(10**2)  # Floating point to handle rounding using integer math instead of the slower round(num, 2)
+steering_duty_cycle = 15.0
 
 # Define pins and constants
 STEERING_PIN = 12  # Pin 32
@@ -38,7 +39,7 @@ FREQUENCY = 100  # FREQUENCY in Hz
 GPIO_CHIP = 0
 
 # Mutexes
-steering_lock = threading.lock()
+steering_lock = threading.Lock()
 
 # Always do this
 HANDLE = lgpio.gpiochip_open(GPIO_CHIP)
@@ -164,6 +165,7 @@ def read_pwm_duty_cycle(CHIP, INPUT_PIN, duration = 0.3):   # 0.3s to calculate 
 
             # Change MUX signal or continue - do this in or out of function?
             if (dc < 14.0 or dc > 16.0):
+                print("Select being writtn to 0!")
                 lgpio.gpio_write(CHIP, SELECT_PIN, 0)     # Select signal to LOW = PWM transmitter/receiver signal
                 return 0
             else:
@@ -227,10 +229,10 @@ def main():
 
 
     # Update throttle_dc to desired speed - start driving
-    throttle_dc = 15.5
+    throttle_dc = 15.4
     lgpio.tx_pwm(HANDLE, THROTTLE_PIN, FREQUENCY, throttle_dc)
 
-    print(f"Generating PWM with duty cycle {throttle_dc} on GPIO {STEERING_PIN} (steering) & {THROTTLE_PIN} (throttle) at {FREQUENCY}Hz")
+    print(f"Generating PWM with duty cycle {throttle_dc} on GPIO {THROTTLE_PIN} (throttle) at {FREQUENCY}Hz")
     print("Press Ctrl+C to stop.")
 
 
@@ -254,7 +256,7 @@ def main():
                 lgpio.tx_pwm(HANDLE, THROTTLE_PIN, FREQUENCY, 15.0)
                 lgpio.tx_pwm(HANDLE, STEERING_PIN, FREQUENCY, 15.0)
                 time.sleep(2.0)
-                print("Stopping any data transmit on STEERING_PIN and THROTTLE_PIN")
+                print("1 - Stopping any data transmit on STEERING_PIN and THROTTLE_PIN")
                 lgpio.tx_pwm(HANDLE, STEERING_PIN, 0, 0)
                 lgpio.tx_pwm(HANDLE, THROTTLE_PIN, 0, 0)
 
@@ -281,15 +283,17 @@ def main():
         lgpio.tx_pwm(HANDLE, THROTTLE_PIN, FREQUENCY, 15.0)
         lgpio.tx_pwm(HANDLE, STEERING_PIN, FREQUENCY, 15.0)
         time.sleep(2)
-        print("Stopping any data transmit on STEERING_PIN and THROTTLE_PIN")
+        print("2 - Stopping any data transmit on STEERING_PIN and THROTTLE_PIN")
         lgpio.tx_pwm(HANDLE, STEERING_PIN, 0, 0)
         lgpio.tx_pwm(HANDLE, THROTTLE_PIN, 0, 0)
 
         # End threads and close GPIO chip
-        mux_thread_instance.join()
-        steering_pwm_thread_instance.join()
         lgpio.gpiochip_close(HANDLE)
         return
+    '''
+        mux_thread_instance.join()
+        steering_pwm_thread_instance.join()
+    '''
 
 
 
