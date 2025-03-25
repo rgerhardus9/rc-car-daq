@@ -7,8 +7,9 @@ import cv2
 
 # Initialize camera
 cap = cv2.VideoCapture(0)
-cap = cv2.VideoCapture(0)
 cameraCenter = cap.get(cv2.CAP_PROP_FRAME_WIDTH) / 2
+fx,fy = 0, int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT)/3)
+fw,fh = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH)), int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT)-fy)
 steeringFactor = 5  # Defines the min/max duty cycle range or "steering aggresssivness"
 p = float(10**1)  # Floating point to handle rounding using integer math instead of the slower round(num, 2)
 
@@ -24,8 +25,8 @@ old_throttle_duty_cycle = 0
 # Apply HSV thresholding for neon pink detection
 def get_mask(frame):
     hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
-    lower_pink = np.array([140, 20, 210], np.uint8)  # Adjust for lighting conditions
-    upper_pink = np.array([175, 255, 255], np.uint8)
+    lower_pink = np.array([140, 30, 170], np.uint8)  # Adjust for lighting conditions
+    upper_pink = np.array([180, 255, 255], np.uint8)
     mask = cv2.inRange(hsv, lower_pink, upper_pink)
     
     # Apply morphological operations to remove noise
@@ -63,8 +64,6 @@ def get_duty_cycle(mask):  # Set a minimum area threshold
             # Default is -5 to 5 + 15 = (10 to 20)%
             duty_cycle = steerAmountRounded + neutralDuty
 
-
-
             return duty_cycle
     return -1  # No line detected, kill program
 
@@ -85,11 +84,16 @@ def main():
         time.sleep(2)
         while True:
             ret, frame = cap.read()
+
+            frameMask = np.zeros(frame.shape[:2], dtype="uint8")
+            frameMask[fy:fy+fh, fx:fx+fw] = 255
+            frame_new = cv2.bitwise_and(frame, frame, mask=frameMask)
+
             if not ret:
                 print("Failed to open camera")
                 break
             
-            mask = get_mask(frame)
+            mask = get_mask(frame_new)
             steering_duty_cycle = get_duty_cycle(mask)
             # throttle_duty_cycle = something
 
