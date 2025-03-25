@@ -17,23 +17,27 @@ class ThrottleController:
         self.position_error = 0
         self.integral_error = 0
         self.derivative_error = 0
-        self.velocity_profile = VelocityProfile()
+        self.velocity_profile = VelocityProfile.VelocityProfile
 
-    def update_pwm(self, start_time):
+
+    def update_pwm(self, start_time, velocity_profile):
         current_time = time.time()  # Convert to milliseconds
         # Get current position
-        self.x = self.readEncoders
+        # self.x = self.readEncoders        # RESTORE THIS
+        self.x = 2
         #Calculate current position
 
         # Get desired position
-        self.xd = self.velocity_profile.get_desired_position(start_time)
+        self.xd = velocity_profile.get_desired_position(start_time)
         # Calculate delta t
         self.delta_t = (time.time() - self.last_update) 
         # Calculate velocity
-        if self.delta != 0:
+        if self.delta_t != 0:
+            print(self.x)
+            print(self.x_previous)
             self.v = (self.x - self.x_previous) / self.delta_t
         #Get desired velocity
-        self.vd = self.velocity_profile.get_desired_velocity(start_time)
+        self.vd = velocity_profile.get_desired_velocity(start_time)
         # Calculate Errors
         self.position_error = self.xd - self.x
         self.integral_error += self.position_error
@@ -52,7 +56,7 @@ class ThrottleController:
 
     def readEncoders(self): # Need to write that
         self.x
-        return self.x
+        return int(self.x)
 
 
     def reset(self):
