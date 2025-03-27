@@ -33,8 +33,6 @@ class ThrottleController:
         self.delta_t = (time.time() - self.last_update) 
         # Calculate velocity
         if self.delta_t != 0:
-            print(self.x)
-            print(self.x_previous)
             self.v = (self.x - self.x_previous) / self.delta_t
         #Get desired velocity
         self.vd = velocity_profile.get_desired_velocity(start_time)
@@ -46,13 +44,13 @@ class ThrottleController:
         # Calculate next PWM value
         self.pwm = self.Kp * self.position_error + self.Ki * self.integral_error + self.Kd * self.derivative_error
         # Constrain between 10 and 20% DC
-        self.pwm = max(10, min(20, self.pwm))  
+        self.pwm = max(15, min(20, self.pwm))  
         
         # Update previous variables
         self.last_update = time.time()
         self.x_previous = self.x
-        # Add delay
-        time.sleep(0.01)
+        # # Add delay
+        # time.sleep(0.01)
 
     def readEncoders(self): # Need to write that
         self.x
@@ -99,10 +97,13 @@ class SteeringController:
         # Update delta T
         self.delta_t = time.time() - self.last_updated
         # Calculate errors
+        # P
         self.steering_angle_error = self.desired_steering_angle - self.current_steering_angle
-        if self.delta_t != 0:
-            self.steering_angle_derivative_error = (self.current_steering_angle - self.previous_steering_angle) / self.delta_t
+        # I
         self.steering_angle_integral_error += self.steering_angle_error
+        if self.delta_t != 0:
+        # D
+            self.steering_angle_derivative_error = (self.current_steering_angle - self.previous_steering_angle) / self.delta_t
         # Update PWM
         self.pwm = self.kp * self.steering_angle_error + self.ki * self.steering_angle_integral_error + self.kd * self.steering_angle_derivative_error
         # Contrain PWM
@@ -111,8 +112,8 @@ class SteeringController:
         # Update previous variables 
         self.previous_steering_angle = self.current_steering_angle
         self.last_updated = time.time()
-        # Add delay
-        time.sleep(0.01)
+        # # Add delay
+        # time.sleep(0.01)
 
     def reset(self):
 
