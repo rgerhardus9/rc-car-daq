@@ -16,15 +16,13 @@ import lgpio
 # throttleController = ThrottleController(1.0 , 1.0 , 1.0)
 
 
-def runAndPrintControlSystem(HANDLE, frequency, steeringController, throttleController, velocityProfile):
+def runAndPrintControlSystem(HANDLE, frequency, steeringController, throttleController, velocityProfile, desiredSteeringAngle):
         print("Hello")
         start_time = time.time()
 
+
         throttleController.update_pwm(start_time, velocityProfile)
-        steeringController.update_pwm(start_time, velocityProfile)
-
-
-        
+        steeringController.update_pwm(desiredSteeringAngle)
                 
         PWM_signal_throttle = throttleController.pwm
         PWM_signal_steering = steeringController.pwm
@@ -35,6 +33,8 @@ def runAndPrintControlSystem(HANDLE, frequency, steeringController, throttleCont
         print()  # Prints a blank line
         print(f"Desired Steering Angle: {steeringController.desired_steering_angle:.2f} degrees")
         print(f"Current Steering Angle: {steeringController.current_steering_angle:.2f} degrees")
+        print(f"PWM throttle: {throttleController.pwm:.2f} %")
+        print(f"PWM steering: {steeringController.pwm:.2f} %")
 
 
         # Generate PWM

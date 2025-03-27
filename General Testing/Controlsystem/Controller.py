@@ -6,7 +6,7 @@ class ThrottleController:
         self.Kp = kp
         self.Ki = ki
         self.Kd = kd
-        self.pwm = 0
+        self.pwm = 15.0
         self.xd = 0
         self.vd = 0
         self.x = 0
@@ -79,7 +79,7 @@ class SteeringController:
         self.kp = kp
         self.ki = ki
         self.kd = kd
-        self.pwm = 15
+        self.pwm = 15.0
         self.delta_t = 0
         self.last_updated = 0
         self.desired_steering_angle = 0
@@ -89,13 +89,13 @@ class SteeringController:
         self.steering_angle_derivative_error = 0
         self.steering_angle_integral_error = 0
         
-    def update_pwm(self, desired_steeringAngle, current_steering_angle):
+    def update_pwm(self, desired_steeringAngle):
         # Get current time 
         current_time = time.time()
         # Get desired steering angle
         self.desired_steering_angle = desired_steeringAngle
-        # Get current steering angle
-        self.current_steering_angle = current_steering_angle
+        # Get current steering angle (m and b from MATLAB file "CarSteeringModel" relating PWM signal and steering angle centerline)
+        self.current_steering_angle = 5.9435 * self.pwm - 89.1515
         # Update delta T
         self.delta_t = time.time() - self.last_updated
         # Calculate errors
@@ -106,7 +106,7 @@ class SteeringController:
         # Update PWM
         self.pwm = self.kp * self.steering_angle_error + self.ki * self.steering_angle_integral_error + self.kd * self.steering_angle_derivative_error
         # Contrain PWM
-        self.pwm = max(13,min(self.pwm, 17))
+        self.pwm = max(10,min(self.pwm, 20))
         
         # Update previous variables 
         self.previous_steering_angle = self.current_steering_angle
