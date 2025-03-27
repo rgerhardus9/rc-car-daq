@@ -1,19 +1,5 @@
 import time
 import lgpio
-# import PWM_signals
-
-#initializeCamera()
-# global PWM_signal_steering
-# global PWM_signal_throttle
-# V_STEADY = 20.5     # Max velocity (m/s)
-# ACCEL = 10.25    # Max acceleration (m/s^2)
-# D_TOTAL   = 82.0   # Total displacement (m)
-
-# PWM_signal_throttle = 15
-# PWM_signal_steering = 15
-#                                         #Kp         Ki         Kd  
-# steeringController = SteeringController(0.061388 , 0.682021 , 0.0)
-# throttleController = ThrottleController(1.0 , 1.0 , 1.0)
 
 
 def runAndPrintControlSystem(HANDLE, frequency, steeringController, throttleController, velocityProfile, desiredSteeringAngle, start_time):
@@ -34,6 +20,10 @@ def runAndPrintControlSystem(HANDLE, frequency, steeringController, throttleCont
         print(f"PWM throttle: {throttleController.pwm:.2f} %")
         print(f"PWM steering: {steeringController.pwm:.2f} %")
 
+
+
+
+# Comment
 
         # Generate PWM
         lgpio.tx_pwm(HANDLE, 13, frequency, PWM_signal_throttle)
