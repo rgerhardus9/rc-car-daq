@@ -10,6 +10,11 @@ import cv2
 # Initialize camera
 cap = cv2.VideoCapture(0)
 
+WIDTH = cap.get(cv2.CAP_PROP_FRAME_WIDTH)
+HEIGHT = cap.get(cv2.CAP_PROP_FRAME_HEIGHT)
+
+print(WIDTH, HEIGHT)
+
 fourcc = cv2.VideoWriter_fourcc(*'XVID')
 out = cv2.VideoWriter('output.avi', fourcc, 20.0, (640,  480))
 
@@ -123,7 +128,7 @@ def main():
 
             cv2.imshow("Mask", mask)
             cv2.imshow("Frame with Center", frame_new)
-            
+
             center, steering_duty_cycle = get_duty_cycle(mask)
             recordFrames(frame_new, center, steering_duty_cycle)
             # throttle_duty_cycle = something
