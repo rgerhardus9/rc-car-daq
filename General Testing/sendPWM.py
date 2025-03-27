@@ -9,6 +9,10 @@ import cv2
 
 # Initialize camera
 cap = cv2.VideoCapture(0)
+
+fourcc = cv2.VideoWriter_fourcc(*'XVID')
+out = cv2.VideoWriter('output.avi', fourcc, 20.0, (640,  480))
+
 cameraCenter = cap.get(cv2.CAP_PROP_FRAME_WIDTH) / 2
 fx,fy = 0, int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT)/3)
 fw,fh = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH)), int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT)-fy)
@@ -74,8 +78,20 @@ def get_duty_cycle(mask):  # Set a minimum area threshold
             # Default is -5 to 5 + 15 = (10 to 20)%
             duty_cycle = steerAmountRounded + neutralDuty
 
-            return duty_cycle
-    return -1  # No line detected, kill program
+            return center_x, duty_cycle
+    return center_x, -1  # No line detected, kill program
+
+# This function is temporary and should be commented out during final demo for speed
+# Function to record the camera feed and add lines similar to duty cycle demo video
+def recordFrames(savedFrame, center_x, duty):
+    width = cap.get(cv2.CAP_PROP_FRAME_WIDTH)
+    height = cap.get(cv2.CAP_PROP_FRAME_HEIGHT)
+    cv2.line(savedFrame, (center_x, fy), (center_x, height), (0, 0, 255), 2)
+    cv2.line(savedFrame, (width, fy), (width, height), (255, 0, 0), 2)
+    cv2.line(savedFrame, (width, int(height/2)), (center_x, int(height/2)), (0, 255, 0), 2)
+    cv2.putText(savedFrame, f"DC: {duty}", (int((center_x + width)/2)-80, int(height/2)-10), cv2.FONT_HERSHEY_SIMPLEX, 0.9, (255, 255, 255), 2)
+
+    out.write(savedFrame)
 
 def main():
     # Claim pins 12 & 13 as output
@@ -104,7 +120,12 @@ def main():
                 break
             
             mask = get_mask(frame_new)
-            steering_duty_cycle = get_duty_cycle(mask)
+
+            cv2.imshow("Mask", mask)
+            cv2.imshow("Frame with Center", frame_new)
+            
+            center, steering_duty_cycle = get_duty_cycle(mask)
+            recordFrames(frame_new, center, steering_duty_cycle)
             # throttle_duty_cycle = something
 
             if steering_duty_cycle < 0:
@@ -137,6 +158,11 @@ def main():
 
         # Close GPIO chip
         lgpio.gpiochip_close(HANDLE)
+
+        # Release resources
+        cap.release()
+        out.release()
+        cv2.destroyAllWindows()
 
 
 if __name__ == "__main__":
