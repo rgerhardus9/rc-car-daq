@@ -16,7 +16,7 @@ HEIGHT = cap.get(cv2.CAP_PROP_FRAME_HEIGHT)
 print(WIDTH, HEIGHT)
 
 fourcc = cv2.VideoWriter_fourcc(*'XVID')
-out = cv2.VideoWriter('output.avi', fourcc, 20.0, (640,  480))
+out = cv2.VideoWriter('output.avi', fourcc, 20.0, (1920,  1200))
 
 cameraCenter = cap.get(cv2.CAP_PROP_FRAME_WIDTH) / 2
 fx,fy = 0, int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT)/3)
