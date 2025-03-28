@@ -231,6 +231,7 @@ def main():
     # Update throttle_dc to desired speed - start driving
     throttle_dc = 15.4
     lgpio.tx_pwm(HANDLE, THROTTLE_PIN, FREQUENCY, throttle_dc)
+    # This currently is constant. Just hook up to receiver for manual control. 3/27
 
     print(f"Generating PWM with duty cycle {throttle_dc} on GPIO {THROTTLE_PIN} (throttle) at {FREQUENCY}Hz")
     print("Press Ctrl+C to stop.")
