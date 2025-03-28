@@ -60,11 +60,9 @@ def main():
     lgpio.tx_pwm(HANDLE, pin_steering, frequency, 15.0)
     time.sleep(2.0)
 
-
-    start_time = time.time()
     
     while throttleController.x <= D_TOTAL:
-        Controlsystem.runAndPrintControlSystem(HANDLE, frequency, steeringController, throttleController, velocityProfile, desiredSteeringAngle, start_time)
+        Controlsystem.runAndPrintControlSystem(HANDLE, frequency, steeringController, throttleController, velocityProfile, desiredSteeringAngle)
 
 
     # Return to neutral

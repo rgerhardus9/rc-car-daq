@@ -20,22 +20,22 @@ class ThrottleController:
         self.velocity_profile = VelocityProfile.VelocityProfile
 
 
-    def update_pwm(self, start_time, velocity_profile):
-        current_time = time.time()  # Convert to milliseconds
+    def update_pwm(self, velocity_profile):
         # Get current position
-        # self.x = self.readEncoders        # RESTORE THIS
-        self.x = 2
+        # self.x = self.getCurrentPosition        # RESTORE THIS
+        self.x = 0
         #Calculate current position
 
         # Get desired position
-        self.xd = velocity_profile.get_desired_position(start_time)
-        # Calculate delta t
-        self.delta_t = (time.time() - self.last_update) 
+        self.xd = velocity_profile.get_desired_position()
+        # Calculate delta t in seconds
+        self.delta_t = (time.time() - self.last_update)         
+        print(f"Delta T: {self.delta_t:.2f} ")      
         # Calculate velocity
         if self.delta_t != 0:
             self.v = (self.x - self.x_previous) / self.delta_t
         #Get desired velocity
-        self.vd = velocity_profile.get_desired_velocity(start_time)
+        self.vd = velocity_profile.get_desired_velocity()
         # Calculate Errors
         self.position_error = self.xd - self.x
         self.integral_error += self.position_error
@@ -52,7 +52,7 @@ class ThrottleController:
         # # Add delay
         # time.sleep(0.01)
 
-    def readEncoders(self): # Need to write that
+    def getCurrentPosition(self): # Need to write that
         self.x
         return int(self.x)
 
@@ -94,8 +94,9 @@ class SteeringController:
         self.desired_steering_angle = desired_steeringAngle
         # Get current steering angle (m and b from MATLAB file "CarSteeringModel" relating PWM signal and steering angle centerline)
         self.current_steering_angle = 5.9435 * self.pwm - 89.1515
-        # Update delta T
+        # Calculate delta T in seconds
         self.delta_t = time.time() - self.last_updated
+        print(f"Delta T: {self.delta_t:.2f} ")  
         # Calculate errors
         # P
         self.steering_angle_error = self.desired_steering_angle - self.current_steering_angle
