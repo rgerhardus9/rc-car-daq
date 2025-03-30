@@ -16,9 +16,8 @@ class VelocityProfile:
         now = (time.monotonic() - start_time)
         vd = 0
         print(f"start Time : {start_time}")
-        print(f"Time: {time.monotonic}")
-        print(f"Now:  {now}")
-
+        print(f"Time: {time.monotonic()}")
+        print(f"now: {now}")
         # Use an if statement to find out what part of the trapezoid you are in
         if self.tfinal < now:
             vd = 0

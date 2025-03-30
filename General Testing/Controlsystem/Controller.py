@@ -18,7 +18,7 @@ class ThrottleController:
         self.proportional_error_previous = 0
         self.integral_error = 0
         self.derivative_error = 0
-        self.velocity_profile = VelocityProfile.VelocityProfile()
+        self.velocity_profile = VelocityProfile.VelocityProfile
 
 
     def update_pwm(self, velocity_profile, start_time):
@@ -47,7 +47,7 @@ class ThrottleController:
         if self.delta_t > 0:
             self.derivative_error = (self.proportional_error - self.proportional_error_previous) / self.delta_t
         # Calculate next PWM value
-        self.pwm = self.Kp * self.proportional_error + self.Ki * self.integral_error + self.Kd * self.derivative_error
+        self.pwm = 15 + self.Kp * self.proportional_error + self.Ki * self.integral_error + self.Kd * self.derivative_error
         # Constrain between 10 and 20% DC
         self.pwm = max(15, min(20, self.pwm))  
         
@@ -56,7 +56,7 @@ class ThrottleController:
         self.x_previous = self.x
         self.proportional_error_previous = self.proportional_error
         # # Add delay
-        # time.sleep(0.01)
+        time.sleep(0.01)
 
     def getCurrentPosition(self): # Need to write that
         self.x
@@ -108,16 +108,23 @@ class SteeringController:
         # Calculate errors
         # P
         self.proportional_error = self.desired_steering_angle - self.current_steering_angle
+        print(f"Proportional error: {self.proportional_error}")
         # I
         self.integral_error += self.proportional_error
-        self.integral_error = max(-1000, min(1000, self.integral_error))
-
+        self.integral_error = max(-(5 / self.ki) , min((5 / self.ki), self.integral_error))
+        print(f"Integral error: {self.integral_error}")
         if self.delta_t > 0:
         # D
             self.derivative_error = (self.proportional_error - self.proportional_error_previous) / self.delta_t
-
+            print(f"Derivative error: {self.derivative_error}")
         # Update PWM
-        self.pwm = self.kp * self.proportional_error + self.ki * self.integral_error + self.kd * self.derivative_error
+        self.pwm = 15 + self.kp * self.proportional_error + self.ki * self.integral_error + self.kd * self.derivative_error
+        print()
+        print(f"Proportional Part: {self.proportional_error * self.kp}")
+        print(f"Integral Part: {self.integral_error * self.ki}")
+        print(f"Derivative Part: {self.derivative_error * self.kd}")
+        print()
+
         # Contrain PWM
         self.pwm = max(10,min(self.pwm, 20))
         
@@ -126,7 +133,7 @@ class SteeringController:
         self.proportional_error_previous = self.proportional_error
         self.last_updated = time.monotonic()
         # # Add delay
-        # time.sleep(0.01)
+        time.sleep(0.01)
 
     def reset(self):
 

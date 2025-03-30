@@ -15,7 +15,7 @@ running = True
 global PWM_signal_steering
 global PWM_signal_throttle
 # Update this value with the distance to the centerline from the camera
-desiredSteeringAngle = 20
+desiredSteeringAngle = 17
 
 HANDLE = lgpio.gpiochip_open(0)
 
@@ -38,7 +38,7 @@ def main():
     pin_throttle = 13  # GPIO pin to output PWM (BCM numbering)
     pin_steering = 12 # GPIO pin to output PWM
 
-
+    time.sleep(2)
     frequency = 100  # Frequency in Hz
     setup_pwm(HANDLE, pin_throttle)
     setup_pwm(HANDLE, pin_steering)
@@ -51,17 +51,20 @@ def main():
     ACCEL = 10.25    # Max acceleration (m/s^2)
     D_TOTAL   = 82.0   # Total displacement (m)
                                             #      Kp              Ki            Kd  
-    steeringController = SteeringController(    0.061388    ,   0.682021    ,   0.0)              
-    throttleController = ThrottleController(      1.0       ,     1.0       ,   1.0)
+    steeringController = SteeringController(      0.06      ,   0.07     ,     0.00001    )              #    0.061388    ,   0.682021    ,   0.0 
+    throttleController = ThrottleController(      0.002      ,   0.002    ,      0.002    )
 
-    velocityProfile = VelocityProfile(D_TOTAL, V_STEADY, ACCEL)
+    velocityProfile = VelocityProfile(D_TOTAL, V_STEADY, ACCEL)   
 
     lgpio.tx_pwm(HANDLE, pin_throttle, frequency, 15.0)
     lgpio.tx_pwm(HANDLE, pin_steering, frequency, 15.0)
-    # time.sleep(2.0)
+    time.sleep(2.0)
 
     # Safe time when the car starts moving
     start_time = time.monotonic()
+    print(f"Start Time Set: {start_time}")
+    # time.sleep(2)
+
     
     while throttleController.x <= D_TOTAL:
         Controlsystem.runAndPrintControlSystem(HANDLE, frequency, steeringController, throttleController, velocityProfile, desiredSteeringAngle, start_time)
@@ -70,11 +73,12 @@ def main():
     # Return to neutral
     lgpio.tx_pwm(HANDLE, pin_throttle, frequency, 15.0)
     lgpio.tx_pwm(HANDLE, pin_steering, frequency, 15.0)
-    # time.sleep(2.0)
+    time.sleep(2.0)
     lgpio.gpiochip_close(HANDLE)
 
 
 if __name__ == "__main__":
     main()
+
 
 
