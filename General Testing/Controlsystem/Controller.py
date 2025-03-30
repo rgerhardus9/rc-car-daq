@@ -47,7 +47,7 @@ class ThrottleController:
         if self.delta_t > 0:
             self.derivative_error = (self.proportional_error - self.proportional_error_previous) / self.delta_t
         # Calculate next PWM value
-        self.pwm = 15 + self.Kp * self.proportional_error + self.Ki * self.integral_error + self.Kd * self.derivative_error
+        self.pwm = self.Kp * self.proportional_error + self.Ki * self.integral_error + self.Kd * self.derivative_error
         # Constrain between 10 and 20% DC
         self.pwm = max(15, min(20, self.pwm))  
         
@@ -111,14 +111,14 @@ class SteeringController:
         print(f"Proportional error: {self.proportional_error}")
         # I
         self.integral_error += self.proportional_error
-        self.integral_error = max(-(5 / self.ki) , min((5 / self.ki), self.integral_error))
+        #self.integral_error = max((10 / self.ki) , min((20 / self.ki), self.integral_error))
         print(f"Integral error: {self.integral_error}")
         if self.delta_t > 0:
         # D
             self.derivative_error = (self.proportional_error - self.proportional_error_previous) / self.delta_t
             print(f"Derivative error: {self.derivative_error}")
         # Update PWM
-        self.pwm = 15 + self.kp * self.proportional_error + self.ki * self.integral_error + self.kd * self.derivative_error
+        self.pwm = self.kp * self.proportional_error + self.ki * self.integral_error + self.kd * self.derivative_error
         print()
         print(f"Proportional Part: {self.proportional_error * self.kp}")
         print(f"Integral Part: {self.integral_error * self.ki}")

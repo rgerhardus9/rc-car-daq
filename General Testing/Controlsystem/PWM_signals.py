@@ -15,7 +15,7 @@ running = True
 global PWM_signal_steering
 global PWM_signal_throttle
 # Update this value with the distance to the centerline from the camera
-desiredSteeringAngle = 17
+desiredSteeringAngle = -10
 
 HANDLE = lgpio.gpiochip_open(0)
 
@@ -51,7 +51,7 @@ def main():
     ACCEL = 10.25    # Max acceleration (m/s^2)
     D_TOTAL   = 82.0   # Total displacement (m)
                                             #      Kp              Ki            Kd  
-    steeringController = SteeringController(      0.06      ,   0.07     ,     0.00001    )              #    0.061388    ,   0.682021    ,   0.0 
+    steeringController = SteeringController(      0.08      ,   0.13     ,     0.0001    )              #    0.061388    ,   0.682021    ,   0.0 
     throttleController = ThrottleController(      0.002      ,   0.002    ,      0.002    )
 
     velocityProfile = VelocityProfile(D_TOTAL, V_STEADY, ACCEL)   
