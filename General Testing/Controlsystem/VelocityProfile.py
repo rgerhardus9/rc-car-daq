@@ -9,22 +9,14 @@ class VelocityProfile:
         self.tsteady = (D_TOTAL / V_STEADY) - (V_STEADY / ACCEL)
         self.t2 = (V_STEADY / ACCEL) + self.tsteady
         self.tfinal = 2 * (V_STEADY / ACCEL) + self.tsteady
-        self.start_time = None
-        self.executed = False
 
-    def get_desired_velocity(self):
-
-        #This function only runs once for the first itteration
-        if not self.executed:       
-            self.executed = True
-            self.start_time = time.time()
-
+    def get_desired_velocity(self, start_time):
 
         # Calculates the desired velocity at the current time based on trapezoidal velocity profile.
-        now = (time.time() - self.start_time)
+        now = (time.monotonic() - start_time)
         vd = 0
-        print(f"start Time : {self.start_time}")
-        print(f"Time: {time.time()}")
+        print(f"start Time : {start_time}")
+        print(f"Time: {time.monotonic}")
         print(f"Now:  {now}")
 
         # Use an if statement to find out what part of the trapezoid you are in
@@ -42,14 +34,10 @@ class VelocityProfile:
         return vd
 
 
-    def get_desired_position(self):
+    def get_desired_position(self, start_time):
         # Calculates the desired position at the current time based on trapezoidal position profile.
-        #This function only runs once for the first itteration
-        if not self.executed:       
-            self.executed = True
-            self.start_time = time.time()
-        
-        now = (time.time() - self.start_time)
+
+        now = (time.monotonic() - start_time)
         xd = 0
         # Use an if statement to find out what part of the trapezoid you are in
         if self.tfinal < now:

@@ -2,10 +2,10 @@ import time
 import lgpio
 
 
-def runAndPrintControlSystem(HANDLE, frequency, steeringController, throttleController, velocityProfile, desiredSteeringAngle):
+def runAndPrintControlSystem(HANDLE, frequency, steeringController, throttleController, velocityProfile, desiredSteeringAngle, start_time):
         print("Hello")
 
-        throttleController.update_pwm(velocityProfile)
+        throttleController.update_pwm(velocityProfile, start_time)
         steeringController.update_pwm(desiredSteeringAngle)
                 
         PWM_signal_throttle = throttleController.pwm

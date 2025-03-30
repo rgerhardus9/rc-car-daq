@@ -58,17 +58,19 @@ def main():
 
     lgpio.tx_pwm(HANDLE, pin_throttle, frequency, 15.0)
     lgpio.tx_pwm(HANDLE, pin_steering, frequency, 15.0)
-    time.sleep(2.0)
+    # time.sleep(2.0)
 
+    # Safe time when the car starts moving
+    start_time = time.monotonic()
     
     while throttleController.x <= D_TOTAL:
-        Controlsystem.runAndPrintControlSystem(HANDLE, frequency, steeringController, throttleController, velocityProfile, desiredSteeringAngle)
+        Controlsystem.runAndPrintControlSystem(HANDLE, frequency, steeringController, throttleController, velocityProfile, desiredSteeringAngle, start_time)
 
 
     # Return to neutral
     lgpio.tx_pwm(HANDLE, pin_throttle, frequency, 15.0)
     lgpio.tx_pwm(HANDLE, pin_steering, frequency, 15.0)
-    time.sleep(2.0)
+    # time.sleep(2.0)
     lgpio.gpiochip_close(HANDLE)
 
 
