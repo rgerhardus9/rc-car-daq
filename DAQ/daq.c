@@ -217,7 +217,7 @@ void generic_pwm_handler(
 	double *prev_inactive_time
 ) {
 	printf("pwm handler \n");
-	return;
+	return;	// Returning because not being used atm. Gets duty cycle based on low/high time NOT using PWM pins. 
 	double active_duration;
 	double total_duration;
 	if (active) {

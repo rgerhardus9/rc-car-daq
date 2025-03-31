@@ -14,9 +14,9 @@
 #include <sys/ioctl.h> // ioctl()
 #include <unistd.h> // read(), close()
 
-//NOTE The RPi4B uses gpiochip0 and the RPi5 uses gpiochip5
+//NOTE RPi5 uses gpiochip0
 //FIXME This fact shouldn't be hidden here
-#define GPIO_CHIP "/dev/gpiochip4"
+#define GPIO_CHIP "/dev/gpiochip0"
 
 typedef struct {
 	const PinInterrupt *interrupts;
