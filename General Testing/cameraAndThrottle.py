@@ -18,8 +18,6 @@ cap.set(cv2.CAP_PROP_FRAME_WIDTH, 1920)  # Reduce width to 320 pixels
 cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 1080)  # Reduce height to 240 pixels
 '''
 
-
-
 cap.set(cv2.CAP_PROP_FPS, 90)
 
 # This width isn't right! USB defaults it to 320
@@ -33,7 +31,7 @@ if width == 0:
 cameraCenter = 160
 
 
-steeringFactor = 4  # Defines the min/max duty cycle range or "steering aggresssivness"
+steeringFactor = 5  # Defines the min/max duty cycle range or "steering aggresssivness"
 neutralDuty = 15  # Duty cycle in which the car goes straight
 p = float(10**2)  # Floating point to handle rounding using integer math instead of the slower round(num, 2)
 global steering_duty_cycle
@@ -85,7 +83,7 @@ def get_mask(frame):
     return mask
 
 # Return PWM based on horizontal distance of line to camera centerline
-def get_duty_cycle(mask, prev_dc):
+def get_duty_cycle(mask):
     # Find contours
     contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
 
@@ -118,16 +116,6 @@ def get_duty_cycle(mask, prev_dc):
             
             print(f"Duty cycle in function: {duty_cycle}")
             return duty_cycle
-            
-            
-            # Only update dc if it is different from before
-            '''
-            if (abs(duty_cycle - prev_dc) > 0.1):
-                return duty_cycle
-            else:
-                return prev_dc
-            '''
-            
 
     else:
         print("No contours. get_duty_cycle returning -1.")
@@ -264,19 +252,36 @@ def main():
     print("Press Ctrl+C to stop.")
 
 
-    prev_duty_cycle = 15.0 
 
     # Camera steering module
     try:
         while True:
-            main_loop_start = time.time()
             ret, frame = cap.read()
             if not ret:
                 print("Failed to open camera")
                 break
             
-            mask = get_mask(frame)
-            new_duty_cycle = get_duty_cycle(mask, prev_duty_cycle)
+            # Define the region (change as needed) - top works best for sharp turns
+            region = "middle"  # Options: "top (2/3)", "middle(1/3)", "bottom(2/3)"
+
+            # Define region boundaries
+            if region == "top":
+                fy, fh = 0, (frame.shape[0] * 2) // 3
+            elif region == "middle":
+                fy, fh = frame.shape[0] // 3, frame.shape[0] // 3
+            elif region == "bottom":
+                fy, fh = frame.shape[0] // 3, (frame.shape[0] * 2) // 3
+
+            fx, fw = 0, frame.shape[1]  # Keep full width
+
+            # Create mask
+            frameMask = np.zeros(frame.shape[:2], dtype="uint8")
+            frameMask[fy:fy+fh, fx:fx+fw] = 255
+            frame_new = cv2.bitwise_and(frame, frame, mask=frameMask)
+
+            mask = get_mask(frame_new)
+
+            new_duty_cycle = get_duty_cycle(mask)
 
             if new_duty_cycle < 0:
                 # Kill everything - kills threads too
@@ -301,8 +306,6 @@ def main():
             
             with steering_lock:
                 steering_duty_cycle = new_duty_cycle    # Should update the global variable for the thread
-
-            prev_duty_cycle = new_duty_cycle
 
             # Do we want a delay in here?
 
