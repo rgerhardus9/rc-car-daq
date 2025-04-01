@@ -52,7 +52,7 @@ def main():
     D_TOTAL   = 82.0   # Total displacement (m)
                                             #      Kp              Ki            Kd  
     steeringController = SteeringController(      0.08      ,   0.13     ,     0.0001    )              #    0.061388    ,   0.682021    ,   0.0 
-    throttleController = ThrottleController(      0.002      ,   0.002    ,      0.002    )
+    throttleController = ThrottleController(      0.02      ,   0.02    ,      0.02    )
 
     velocityProfile = VelocityProfile(D_TOTAL, V_STEADY, ACCEL)   
 

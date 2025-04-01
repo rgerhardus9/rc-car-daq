@@ -244,7 +244,7 @@ def main():
     # TODO: Implement control system thread to update throttle_dc - Mutex for throttle_dc
 
     # Update throttle_dc to desired speed - start driving
-    throttle_dc = 15.5
+    throttle_dc = 16.0
     lgpio.tx_pwm(HANDLE, THROTTLE_PIN, FREQUENCY, throttle_dc)
     # This currently is constant. Just hook up to receiver for manual control. 3/27
 

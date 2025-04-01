@@ -204,6 +204,7 @@ void (* const rpm_handlers[RPM_INTERRUPTS])(uint64_t, bool) = {
 };
 
 // --= PWM =-- //
+// TODO: change to our PWM pins
 #define PWM_INTERRUPTS 2
 const uint8_t pwm_pins[PWM_INTERRUPTS] = {9, 11};
 double prev_inactive_times[PWM_INTERRUPTS] = {0};
