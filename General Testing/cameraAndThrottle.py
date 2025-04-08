@@ -31,7 +31,7 @@ if width == 0:
 cameraCenter = 160
 
 
-steeringFactor = 5  # Defines the min/max duty cycle range or "steering aggresssivness"
+steeringFactor = 3  # Defines the min/max duty cycle range or "steering aggresssivness"
 neutralDuty = 15  # Duty cycle in which the car goes straight
 p = float(10**2)  # Floating point to handle rounding using integer math instead of the slower round(num, 2)
 global steering_duty_cycle
@@ -196,14 +196,14 @@ def steering_pwm_thread():
     while not stop_event.is_set():
         # Lock so steering_duty_cycle doesn't change during execution
         with steering_lock:
-            print(f"THREAD: Writing PWM: {round(steering_duty_cycle, 2)} at {round(time.time() - pwm_steer_start, 5)}")   
             lgpio.tx_pwm(HANDLE, STEERING_PIN, FREQUENCY, steering_duty_cycle)
+            print(f"THREAD: Writing PWM: {round(steering_duty_cycle, 2)} at {round(time.time() - pwm_steer_start, 5)}")   
             # print(f"Thread running with steering duty cycle: {steering_duty_cycle}") # Gonna print a lot
             # print(f"Time for thread to send steering dc: {time.time() - pwm_steer_start}") # This is much faster than 10ms, so function is limited by time.sleep()
 
         # STEERING PWM UPDATE RATE - limits is about 200 us (0.0002s) ==> 5000 Hz
         # Usually about 70-150 us for calculations. 
-        time.sleep(0.000050)  # Small delay to keep CPU usage low - write duty cycle every 10 ms
+        time.sleep(0.001)  # Small delay to keep CPU usage low - write duty cycle every 10 ms
 
 def mux_thread():
     print("THREAD: MUX")
