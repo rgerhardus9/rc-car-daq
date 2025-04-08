@@ -7,30 +7,23 @@ import time
 import numpy as np
 import cv2
 
-import threading
-
 # Initialize camera
 cap = cv2.VideoCapture(0)
-# cap.set(cv2.CAP_PROP_FRAME_WIDTH, 60)  # Reduce width to 320 pixels
-# cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 40)  # Reduce height to 240 pixels
-# cap.set(cv2.CAP_PROP_FPS, 10)  # Reduce FPS to 15
 cameraCenter = cap.get(cv2.CAP_PROP_FRAME_WIDTH) / 2
-steeringFactor = 4  # Defines the min/max duty cycle range or "steering aggresssivness"
-neutralDuty = 15  # Duty cycle in which the car goes straight
-p = float(10**2)  # Floating point to handle rounding using integer math instead of the slower round(num, 2)
+fx,fy = 0, int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT)/3)
+fw,fh = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH)), int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT)-fy)
+steeringFactor = 5  # Defines the min/max duty cycle range or "steering aggresssivness"
+p = float(10**1)  # Floating point to handle rounding using integer math instead of the slower round(num, 2)
 
 steeringPin = 12  # GPIO pin to output PWM for steering control 
 throttlePin = 13  # GPIO pin to output PWM for throttle control 
 frequency = 100  # Frequency in Hz
 
-# Initialize steering duty cycle
-steering_duty_cycle = 15.0
-prev_dc = 15.0
+# Duty cycle values for updating PWM and sending PWM less often
+neutralDuty = 15  # Duty cycle in which the car goes straight
+old_steering_duty_cycle = 0 # Values to compare current duty cycle to send PWM if there is a difference
+old_throttle_duty_cycle = 0
 
-lock = threading.Lock()  # Lock to handle steering duty cycle safely across threads
-
-
-# Always do this
 HANDLE = lgpio.gpiochip_open(0)
 
 # Apply HSV thresholding for neon pink detection
@@ -54,7 +47,7 @@ def get_mask(frame):
     return mask
 
 # Return PWM based on horizontal distance of line to camera centerline
-def get_duty_cycle(mask, prev_dc):  # Set a minimum area threshold
+def get_duty_cycle(mask):  # Set a minimum area threshold
     # Find contours
     contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
 
@@ -65,8 +58,12 @@ def get_duty_cycle(mask, prev_dc):  # Set a minimum area threshold
             x, y, w, h = cv2.boundingRect(largest_contour)
 
             center_x = x + w // 2  # Only the x position determines the duty cycle calculation
+
+            ratioToCenter = (center_x - cameraCenter) / cameraCenter # Ratio of steering relative to frame size (-1 to 1)
+
+            steeringFactor = 5*abs(ratioToCenter)
             
-            steerAmount = ((center_x - cameraCenter) / cameraCenter) * steeringFactor  # Ratio of steering relative to frame size (-1 to 1)
+            steerAmount =  ratioToCenter * steeringFactor  # Ratio of steering relative to frame size (-1 to 1)
 
             # Rounding is faster through integer manipulation
             if steerAmount > 0:
@@ -74,89 +71,72 @@ def get_duty_cycle(mask, prev_dc):  # Set a minimum area threshold
             else:
                 steerAmountRounded = int(steerAmount * p - 0.5) / p
 
-            # print(f"steerAmountRounded: {steerAmountRounded}")
-
-
             # Default is -5 to 5 + 15 = (10 to 20)%
             duty_cycle = steerAmountRounded + neutralDuty
 
-            # Only update dc if it is different from before
-            if (abs(duty_cycle - prev_dc) > 0.2):
-                return duty_cycle
-            else:
-                return prev_dc
-
-    else:
-        print("No contours.")
-        return -1  # No line detected, kill program
-
-def pwm_thread():
-    global steering_duty_cycle
-    while True:
-        with lock:
-            lgpio.tx_pwm(HANDLE, steeringPin, frequency, steering_duty_cycle)
-            print(f"Thread running with steering duty cycle: {steering_duty_cycle}")
-        time.sleep(0.02)  # Small delay to keep CPU usage low - write duty cycle every 20 ms
-
+            return duty_cycle
+    return -1  # No line detected, kill program
 
 def main():
-
-    global steering_duty_cycle
     # Claim pins 12 & 13 as output
     lgpio.gpio_claim_output(HANDLE, steeringPin)
-    # lgpio.gpio_claim_output(HANDLE, throttlePin)
-
-    pwm_thread_instance = threading.Thread(target=pwm_thread, daemon=True)
-    pwm_thread_instance.start()
-
+    lgpio.gpio_claim_output(HANDLE, throttlePin)
     
-
     # Set Throttle and Steering to Neutral State (duty cycle of 15%)
-    # lgpio.tx_pwm(HANDLE, steeringPin, frequency, 15) # Believe this is done by the thread now
-    # lgpio.tx_pwm(HANDLE, throttlePin, frequency, 15)
+    lgpio.tx_pwm(HANDLE, steeringPin, frequency, 15)
+    lgpio.tx_pwm(HANDLE, throttlePin, frequency, 15)
 
     print(f"Generating PWM on GPIO {steeringPin} (steering) & {throttlePin} (throttle) at {frequency}Hz")
     print("Press Ctrl+C to stop.")
     time.sleep(2)
 
-    prev_duty_cycle = steering_duty_cycle
-
     try:
         while True:
             ret, frame = cap.read()
+
+            # Creates mask to only look at the bottom 2/3 of a frame
+            frameMask = np.zeros(frame.shape[:2], dtype="uint8")
+            frameMask[fy:fy+fh, fx:fx+fw] = 255
+            frame_new = cv2.bitwise_and(frame, frame, mask=frameMask)
+
             if not ret:
                 print("Failed to open camera")
                 break
             
-            mask = get_mask(frame)
-            new_duty_cycle = get_duty_cycle(mask, prev_duty_cycle)
+            mask = get_mask(frame_new)
+            steering_duty_cycle = get_duty_cycle(mask)
+            # throttle_duty_cycle = something
 
-            #if new_duty_cycle < 0:
-             #   print("Failed to get duty cycle")
-            
-            steering_duty_cycle = new_duty_cycle    # Should update the global variable for the thread
-            prev_duty_cycle = new_duty_cycle
+            if steering_duty_cycle < 0:
+                print("Failed to get duty cycle")
+                break
+            # if throttle_duty_cycle < 0:
+            #     break
 
-            #print(f"Steering duty cycle: {steering_duty_cycle}")
-
-
+            if steering_duty_cycle != old_steering_duty_cycle:
+                old_steering_duty_cycle = steering_duty_cycle
+                print(steering_duty_cycle)
+                lgpio.tx_pwm(HANDLE, steeringPin, frequency, steering_duty_cycle)
             # Commented out because we haven't determined how we are gonna generate the throttle duty cycle yet
-            #lgpio.tx_pwm(HANDLE, throttlePin, frequency, throttle_duty_cycle)
+            # if throttle_duty_cycle != old_throttle_duty_cycle:
+                # lgpio.tx_pwm(gpioChipHandle, throttlePin, frequency, throttle_duty_cycle)
+            time.sleep(1/frequency)
 
-
-        
     except KeyboardInterrupt:
         print("\nStopping PWM and cleaning up GPIO.")
     finally:
+        # Stop the car by setting to neuttral state
+        lgpio.tx_pwm(HANDLE, steeringPin, frequency, neutralDuty)
+        lgpio.tx_pwm(HANDLE, throttlePin, frequency, neutralDuty)
+
+        time.sleep(2)
+
         # Stop PWM
         lgpio.tx_pwm(HANDLE, steeringPin, 0, 0)
-        # lgpio.tx_pwm(HANDLE, throttlePin, 0, 0)
+        lgpio.tx_pwm(HANDLE, throttlePin, 0, 0)
 
         # Close GPIO chip
         lgpio.gpiochip_close(HANDLE)
-
-
-
 
 
 if __name__ == "__main__":
