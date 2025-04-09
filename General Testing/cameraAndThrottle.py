@@ -37,7 +37,8 @@ p = float(10**2)  # Floating point to handle rounding using integer math instead
 # Initialize throttle and steering PWM values
 global steering_duty_cycle
 steering_duty_cycle = 15.0
-# DELETED throttle_dc global declaration - only using in thread
+global throttle_dc
+throttle_dc = 15.0
 
 # Define pins and constants
 STEERING_PIN = 12  # Pin 32
@@ -51,7 +52,7 @@ SIMULATION_TIME = 2.0   # s
 STARTING_SPEED = 0.0    # m/s
 TARGET_SPEED = 15.0     # m/s - NEVER OVER 20.1
 MAX_SPEED = 20.1        # m/s - DO NOT CHANGE
-MAX_ACCELERATION = 0.054    # 5.4 m/s^2 = 0.054 m/10 ms^2
+MAX_ACCELERATION = 0.054    # 5.4 m/s^2 = 0.054 m/ (10 ms)^2
 ACCELERATION_STEP_10MS = (MAX_ACCELERATION) / (MAX_SPEED / 5)
 STARTING_SPEED_DC = (5/MAX_SPEED) * STARTING_SPEED + 15.0   # Percent
 TARGET_SPEED_DC = (5/MAX_SPEED) * TARGET_SPEED + 15.0       # Percent
@@ -136,7 +137,7 @@ def get_duty_cycle(mask):
 
 # Read PWM duty cycle from receiver
 # Returns select to send via SELECT_PIN ==> 0 to switch to manual control, 1 to keep program control
-def read_pwm_duty_cycle(CHIP, INPUT_PIN, duration = 0.3):   # 0.3s to calculate DC and switch MUX select - delay, but need high enough for a good calculation
+def read_pwm_duty_cycle(CHIP, INPUT_PIN, duration=0.3):   # 0.3s to calculate DC and switch MUX select - delay, but need high enough for a good calculation
 
     print("Measuring PWM duty cycle...")
     # Run until DC is outside of range - HIT THE BRAKES
@@ -191,7 +192,7 @@ def read_pwm_duty_cycle(CHIP, INPUT_PIN, duration = 0.3):   # 0.3s to calculate 
             # Change MUX signal or continue - changed to 13.0 because of the thread not having the CPU power?
             if (dc < 13.0):
                 print("Select being written to 0!")
-                lgpio.gpio_write(CHIP, SELECT_PIN, 0)     # Select signal to LOW = Manual Control
+                # lgpio.gpio_write(CHIP, SELECT_PIN, 0)     # Select signal to LOW = Manual Control - commented out because redundant
                 return 0
             else:
                 continue
@@ -223,21 +224,21 @@ def mux_thread():
     # Duty cycle to send for program control
     while not stop_event.is_set():
         select = read_pwm_duty_cycle(HANDLE, INPUT_PIN) # Stuck here until function returns 0 to switch to manual control - while(True) above unnecessary
-        print("THREAD: MUX still reading.")
         if (select == 0):
             lgpio.gpio_write(HANDLE, SELECT_PIN, select)
             print(f"MUX has given back manual control. Ending thread.")
             stop_event.set()
             return  # End thread - does this end the thread or just the function?
 
-# TODO: Make control system thread
+# Set SIMULATION_TIME, MAX_ACCELERATION, STARTING_SPEED, and TARGET_SPEED
 def throttle_thread():
     global stop_event
+    global throttle_dc
     throttle_start_time = time.time()
     print("THREAD: Throttle Running.")
     throttle_dc = STARTING_SPEED_DC
     print(f"Starting throttle {throttle_dc}")
-    while (time.time() - throttle_start_time < SIMULATION_TIME):
+    while not stop_event.is_set() and (time.time() - throttle_start_time < SIMULATION_TIME):
         # Comment this out for speed
         print(f"Writing throttle of {throttle_dc} at {round(time.time() - throttle_start_time, 2)}")
         lgpio.tx_pwm(HANDLE, THROTTLE_PIN, FREQUENCY, throttle_dc)
@@ -253,7 +254,10 @@ def throttle_thread():
 
         time.sleep(0.009)   # Aim to update at 100 Hz (0.01s)
 
+    stop_event.set()
+
     if (throttle_dc > 15.0):
+        throttle_dc = 15.0
         print("Time over. Braking.")
         lgpio.tx_pwm(HANDLE, THROTTLE_PIN, FREQUENCY, 12.0)
         time.sleep(3.0)
@@ -261,8 +265,8 @@ def throttle_thread():
     time.sleep(2.0)
 
     # Give back manual control
+    print("Throttle thread over. Giving back control.")
     lgpio.gpio_write(HANDLE, SELECT_PIN, 0)
-    stop_event.set()
 
     return
 
@@ -283,17 +287,17 @@ def main():
     '''
 
     # Define and start threads from functions - daemon threads killed automatically when main() exits
-    # Non-daemon threads don't allow main() to be run until they are killed
 
     # Steering PWM thread - Mutex for steering_duty_cycle because it is calculated in main() by the camera module
-    steering_pwm_thread_instance = threading.Thread(target=steering_pwm_thread, daemon=True)
+    steering_pwm_thread_instance = threading.Thread(target=steering_pwm_thread, daemon=False)
     steering_pwm_thread_instance.start()
 
     # MUX thread instance - Mutex for select and input pins not needed as they are only changed locally
-    mux_thread_instance = threading.Thread(target=mux_thread, daemon=True)
+    mux_thread_instance = threading.Thread(target=mux_thread, daemon=False)
     mux_thread_instance.start()
 
-    throttle_thread_instance = threading.Thread(target=throttle_thread, daemon=True)
+    # Throttle thread instance
+    throttle_thread_instance = threading.Thread(target=throttle_thread, daemon=False)
     throttle_thread_instance.start()
 
     # TODO: Implement control system thread to update throttle_dc - No mutex for throttle_dc
@@ -368,6 +372,10 @@ def main():
 
             #print(f"Steering duty cycle: {steering_duty_cycle}")
 
+            # Where is the 90 FPS limit coming from in code?
+            # If we print the time here I bet it operates more often than
+            time.sleep(0.005) 
+
 
         
     except KeyboardInterrupt:
@@ -376,9 +384,17 @@ def main():
         # Stop PWM
         # Maybe stop throttle here
         stop_event.set()
+        time.sleep(0.05)    # Make sure threads don't write values
+
+        # End threads
+        mux_thread_instance.join()
+        steering_pwm_thread_instance.join()
+        throttle_thread_instance.join()
+
         # BRAKE
-        lgpio.tx_pwm(HANDLE, THROTTLE_PIN, FREQUENCY, 12.0)
-        time.sleep(0.5)
+        if (throttle_dc > 15.0):
+            lgpio.tx_pwm(HANDLE, THROTTLE_PIN, FREQUENCY, 11.0)
+            time.sleep(1.0)
         # NEUTRAL
         lgpio.tx_pwm(HANDLE, THROTTLE_PIN, FREQUENCY, 15.0)
         lgpio.tx_pwm(HANDLE, STEERING_PIN, FREQUENCY, 15.0)
@@ -389,15 +405,19 @@ def main():
         lgpio.tx_pwm(HANDLE, STEERING_PIN, 0, 0)
         lgpio.tx_pwm(HANDLE, THROTTLE_PIN, 0, 0)
 
+        # Give back control! Nothing bad if this is redundant
+        lgpio.gpio_write(HANDLE, SELECT_PIN, 0)
+
+
         # End threads and close GPIO chip
-        mux_thread_instance.join()
-        steering_pwm_thread_instance.join()
-        throttle_thread_instance.join()
+        
         lgpio.gpiochip_close(HANDLE)
+
+        # Release camera
+        cap.release()
 
         
         return
-
 
 
 if __name__ == "__main__":
