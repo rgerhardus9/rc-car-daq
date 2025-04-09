@@ -42,22 +42,22 @@ void *_polling(void *args) {
 	while (pthread_mutex_trylock(canceled) != 0) {
 		// Poll for interrupt
 		const int poll_result = poll(&poll_fd, 1, 1000);
-		printf("After poll function. poll_result = %i\n", poll_result);
+		// printf("After poll function. poll_result = %i\n", poll_result);
 		if (poll_result < 0) return (void *)-1; // Poll error
-		printf("No poll error.\n");
+		// printf("No poll error.\n");
 		if (poll_result == 0) continue; // Timed out
-		printf("Didn't time out.\n");
+		// printf("Didn't time out.\n");
 		if ((poll_fd.revents & POLLIN) == 0) {
-			printf("poll_fd.revents: %d (no interrupt detected)\n", poll_fd.revents);
+			// printf("poll_fd.revents: %d (no interrupt detected)\n", poll_fd.revents);
 			return (void *)-3; // No POLLPRI event
 		}
 		// Read line event
 		struct gpio_v2_line_event event;
-		printf("event.offset = %d", event.offset);
+		// printf("event.offset = %d", event.offset);
 
 		if (read(poll_fd.fd, &event, sizeof(struct gpio_v2_line_event)) <= 0)
 			return (void *)-4;
-		printf("poll_fd.revents: %d\n", poll_fd.revents);
+		// printf("poll_fd.revents: %d\n", poll_fd.revents);
 		// Call interrupt
 		//XXX what if we don't call an interrupt here?
 		for (size_t i = 0; i < num_interrupts; i += 1) {
@@ -197,10 +197,10 @@ int begin_interrupt_polling(
 	printf("Created thread.\n");
 	if (res < 0) return -7;
 	// Wait for arguments to be received
-	printf("args.received: %i\n", args.received);
+	// printf("args.received: %i\n", args.received);
 	while (!args.received);
 
-	printf("Arg received. Returning 0\n");
+	// printf("Arg received. Returning 0\n");
 	return 0;
 }
 

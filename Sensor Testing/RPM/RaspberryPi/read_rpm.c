@@ -29,7 +29,6 @@ double times[NUM_INTERRUPTS][NUM_TIMES];
 bool all_valid[NUM_INTERRUPTS] = {0};
 ssize_t cur_idx[NUM_INTERRUPTS] = {0};
 
-int interrupt_count[NUM_INTERRUPTS] = {0}; // One counter for each pin
 
 void generic_interrupt_handler(
 	const uint8_t pin,
@@ -38,8 +37,6 @@ void generic_interrupt_handler(
 	ssize_t *const cur_idx
 ) {	
 
-	printf("In GENERIC\n");
-	interrupt_count[pin]++;
 	// Get current time
 	const double cur_time = millis(); //TODO figure out accuracy
 	// Print RPM
@@ -72,7 +69,6 @@ void generic_interrupt_handler_wrapper(
 }
 
 #define interrupt_handler(i) void interrupt_handler_##i() { \
-	printf("Interrupt handler %d triggered! on pin %i\n", i, pins[i]); \
 	fflush(stdout);									\
 	generic_interrupt_handler_wrapper(pins[i], i); \
 }
@@ -88,16 +84,8 @@ void (* const interrupt_handlers[NUM_INTERRUPTS])(void) = {
 };
 
 
-void print_interrupt_count() {
-	
-	sleep(10);
-    for (int i = 0; i < NUM_INTERRUPTS; i++) {
-        printf("Pin %d interrupt count: %d\n", pins[i], interrupt_count[i]);
-    }
-}
-
 int main() {
-	printf("SIGINT: %i\n", SIGINT);
+	// printf("SIGINT: %i\n", SIGINT);
 	signal(SIGINT, sigint_handler);
 
 	// Setup pin interrupts
@@ -116,11 +104,11 @@ int main() {
 	Handle handle;
 	// TODO: Gets stuck in begin_interrupt_polling
 	for (int i = 0; i < NUM_INTERRUPTS; i++) {
-		printf("Interrupt #%i: pin = %i\n", i, pins[i]);
+		// printf("Interrupt #%i: pin = %i\n", i, pins[i]);
 		fflush(stdout);
 	}
 	int result = begin_interrupt_polling(pin_interrupts, NUM_INTERRUPTS, &handle);	
-	printf("Main() has passed begin_interrupt polling with a result return value of %i.\n", result);
+	// printf("Main() has passed begin_interrupt polling with a result return value of %i.\n", result);
 	if (result < 0) {
 		printf("error %d: beginning polling \n", result);
 		return -1;
@@ -128,9 +116,7 @@ int main() {
 
 	printf("Main() idle until interrupted by Ctrl+C.\n");
 	// Idle until interrupted
-	while (!interrupted) {
-		print_interrupt_count();
-	}
+	while (!interrupted);
 	
 
 	// End interrupt polling
