@@ -137,7 +137,8 @@ def get_duty_cycle(mask):
 
 # Read PWM duty cycle from receiver
 # Returns select to send via SELECT_PIN ==> 0 to switch to manual control, 1 to keep program control
-def read_pwm_duty_cycle(CHIP, INPUT_PIN, duration=0.3):   # 0.3s to calculate DC and switch MUX select - delay, but need high enough for a good calculation
+'''
+def read_pwm_duty_cycle(CHIP, INPUT_PIN, duration = 0.3):   # 0.3s to calculate DC and switch MUX select - delay, but need high enough for a good calculation
 
     print("Measuring PWM duty cycle...")
     # Run until DC is outside of range - HIT THE BRAKES
@@ -197,6 +198,7 @@ def read_pwm_duty_cycle(CHIP, INPUT_PIN, duration=0.3):   # 0.3s to calculate DC
             else:
                 continue
 
+'''
 
 # Mutex for steering_duty_cycle because it is constantly changing via the camera module in main()
 def steering_pwm_thread():
@@ -218,6 +220,7 @@ def steering_pwm_thread():
         # TODO: How often does steering_duty_cycle actually update?
         time.sleep(0.01)  # Small delay to keep CPU usage low - write duty cycle every 10 ms (100 Hz)
 
+'''
 def mux_thread():
     global stop_event
     print("THREAD: MUX")
@@ -229,6 +232,7 @@ def mux_thread():
             print(f"MUX has given back manual control. Ending thread.")
             stop_event.set()
             return  # End thread - does this end the thread or just the function?
+'''
 
 # Set SIMULATION_TIME, MAX_ACCELERATION, STARTING_SPEED, and TARGET_SPEED
 def throttle_thread():
