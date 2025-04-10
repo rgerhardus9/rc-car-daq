@@ -1,6 +1,6 @@
 #! /usr/bin/env python
 
-# Working code to foloow line with manual steering control as of 3/11
+# Working code to foloow line with manual throttle control as of 3/11
 
 import lgpio
 import time
