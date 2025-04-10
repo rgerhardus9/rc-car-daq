@@ -10,20 +10,16 @@ import cv2
 # Initialize camera
 cap = cv2.VideoCapture(0, cv2.CSP_V4L2)
 
-cap.set(cv2.CAP_PROP_FRAME_WIDTH, 960)
-cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 720)
+cap.set(cv2.CAP_PROP_FRAME_WIDTH, 1920)
 
 WIDTH = cap.get(cv2.CAP_PROP_FRAME_WIDTH)
 HEIGHT = cap.get(cv2.CAP_PROP_FRAME_HEIGHT)
 
 print(WIDTH, HEIGHT)
 
-fourcc = cv2.VideoWriter_fourcc(*'XVID')
-out = cv2.VideoWriter('output.avi', fourcc, 20.0, (960, 720))
-
 cameraCenter = cap.get(cv2.CAP_PROP_FRAME_WIDTH) / 2
-fx,fy = 0, int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT)/3)
-fw,fh = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH)), int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT)-fy)
+fx, fy = 0, int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT)/4)
+fw, fh = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH)), int((cap.get(cv2.CAP_PROP_FRAME_HEIGHT)*0.1667)+fy)
 steeringFactor = 5  # Defines the min/max duty cycle range or "steering aggresssivness"
 p = float(10**1)  # Floating point to handle rounding using integer math instead of the slower round(num, 2)
 
@@ -86,21 +82,8 @@ def get_duty_cycle(mask):  # Set a minimum area threshold
             # Default is -5 to 5 + 15 = (10 to 20)%
             duty_cycle = steerAmountRounded + neutralDuty
 
-            return center_x, duty_cycle
-    return center_x, -1  # No line detected, kill program
-
-# This function is temporary and should be commented out during final demo for speed
-# Function to record the camera feed and add lines similar to duty cycle demo video
-def recordFrames(savedFrame, center_x, duty):
-    if center_x is not None:
-        width = cap.get(cv2.CAP_PROP_FRAME_WIDTH)
-        height = cap.get(cv2.CAP_PROP_FRAME_HEIGHT)
-        cv2.line(savedFrame, (center_x, fy), (center_x, height), (0, 0, 255), 2)
-        cv2.line(savedFrame, (width, fy), (width, height), (255, 0, 0), 2)
-        cv2.line(savedFrame, (width, int(height/2)), (center_x, int(height/2)), (0, 255, 0), 2)
-        cv2.putText(savedFrame, f"DC: {duty}", (int((center_x + width)/2)-80, int(height/2)-10), cv2.FONT_HERSHEY_SIMPLEX, 0.9, (255, 255, 255), 2)
-
-    out.write(savedFrame)
+            return duty_cycle
+    return -1  # No line detected, kill program
 
 def main():
     # Claim pins 12 & 13 as output
@@ -119,7 +102,7 @@ def main():
         while True:
             ret, frame = cap.read()
 
-            # Creates mask to only look at the bottom 2/3 of a frame
+            # Creates mask to only look at the middle 4/12 to 8/12ths of the frame
             frameMask = np.zeros(frame.shape[:2], dtype="uint8")
             frameMask[fy:fy+fh, fx:fx+fw] = 255
             frame_new = cv2.bitwise_and(frame, frame, mask=frameMask)
@@ -129,8 +112,7 @@ def main():
                 break
             
             mask = get_mask(frame_new)
-            center, steering_duty_cycle = get_duty_cycle(mask)
-            recordFrames(frame_new, center, steering_duty_cycle)
+            steering_duty_cycle = get_duty_cycle(mask)
             # throttle_duty_cycle = something
 
             if steering_duty_cycle < 0:
@@ -166,7 +148,6 @@ def main():
 
         # Release resources
         cap.release()
-        out.release()
         cv2.destroyAllWindows()
 
 
