@@ -12,53 +12,49 @@ class ThrottleController:
         self.x = 0
         self.x_previous = 0
         self.v = 0
-        self.last_update = time.monotonic()
+        self.last_update = 0  # Initialize with 0
         self.delta_t = 0  # Initialize delta_t
-        self.proportional_error = 0
-        self.proportional_error_previous = 0
+        self.position_error = 0
         self.integral_error = 0
         self.derivative_error = 0
         self.velocity_profile = VelocityProfile.VelocityProfile
 
 
-    def update_pwm(self, velocity_profile, start_time):
+    def update_pwm(self, start_time, velocity_profile):
+        current_time = time.time()  # Convert to milliseconds
         # Get current position
-        # self.x = self.getCurrentPosition        # RESTORE THIS
-        self.x = 0
+        # self.x = self.readEncoders        # RESTORE THIS
+        self.x = 2
         #Calculate current position
 
         # Get desired position
         self.xd = velocity_profile.get_desired_position(start_time)
-        # Calculate delta t in seconds
-        self.delta_t = (time.monotonic() - self.last_update)         
-        print(f"Delta T: {self.delta_t:.2f} ")      
+        # Calculate delta t
+        self.delta_t = (time.time() - self.last_update) 
         # Calculate velocity
         if self.delta_t != 0:
+            print(self.x)
+            print(self.x_previous)
             self.v = (self.x - self.x_previous) / self.delta_t
         #Get desired velocity
         self.vd = velocity_profile.get_desired_velocity(start_time)
         # Calculate Errors
-        # P
-        self.proportional_error = self.vd - self.v
-        # I
-        self.integral_error += self.proportional_error
+        self.position_error = self.xd - self.x
+        self.integral_error += self.position_error
         self.integral_error = max(-1000, min(1000, self.integral_error)) # Prevent integral windup #Choose different values maybe
-        # D
-        if self.delta_t > 0:
-            self.derivative_error = (self.proportional_error - self.proportional_error_previous) / self.delta_t
+        self.derivative_error = self.vd - self.v
         # Calculate next PWM value
-        self.pwm = self.Kp * self.proportional_error + self.Ki * self.integral_error + self.Kd * self.derivative_error
+        self.pwm = self.Kp * self.position_error + self.Ki * self.integral_error + self.Kd * self.derivative_error
         # Constrain between 10 and 20% DC
-        self.pwm = max(15, min(20, self.pwm))  
+        self.pwm = max(10, min(20, self.pwm))  
         
         # Update previous variables
-        self.last_update = time.monotonic()
+        self.last_update = time.time()
         self.x_previous = self.x
-        self.proportional_error_previous = self.proportional_error
-        # # Add delay
+        # Add delay
         time.sleep(0.01)
 
-    def getCurrentPosition(self): # Need to write that
+    def readEncoders(self): # Need to write that
         self.x
         return int(self.x)
 
@@ -69,13 +65,12 @@ class ThrottleController:
         self.x_previous = 0
         self.v = 0
         self.vd = 0
-        self.pwm = 15
-        self.proportional_error = 0
+        self.pwm = 0
+        self.position_error = 0
         self.integral_error = 0
         self.derivative_error = 0
-        self.last_update = time.monotonic()
+        self.last_update = 0
         self.delta_t = 0 
-    
 
 
 
@@ -86,63 +81,47 @@ class SteeringController:
         self.kd = kd
         self.pwm = 15.0
         self.delta_t = 0
-        self.last_updated = time.monotonic()
-        self.desired_steering_angle = 0
-        self.current_steering_angle = 0
-        self.previous_steering_angle = 0
-        self.proportional_error = 0
-        self.proportional_error_previous = 0
-        self.derivative_error = 0
-        self.integral_error = 0
+        self.last_updated = 0
+        self.desired_dist_to_centerline = 0
+        self.current_dist_to_centerline = 0
+        self.previous_dist_to_centerline = 0
+        self.error_dist_to_centerline = 0
+        self.derivative_error_dist_to_centerline = 0
+        self.integral_error_dist_to_centerline = 0
         
-    def update_pwm(self, desired_steeringAngle):
+    def update_pwm(self, desired_dist_to_centerline):
         # Get current time 
-        current_time = time.monotonic()
+        current_time = time.time()
         # Get desired steering angle
-        self.desired_steering_angle = desired_steeringAngle
+        self.desired_dist_to_centerline = desired_dist_to_centerline
         # Get current steering angle (m and b from MATLAB file "CarSteeringModel" relating PWM signal and steering angle centerline)
-        self.current_steering_angle = 5.9435 * self.pwm - 89.1515
-        # Calculate delta T in seconds
-        self.delta_t = time.monotonic() - self.last_updated
-        print(f"Delta T: {self.delta_t:.2f} ")  
+        self.current_dist_to_centerline = #camera value
+        # Update delta T
+        self.delta_t = time.time() - self.last_updated
         # Calculate errors
-        # P
-        self.proportional_error = self.desired_steering_angle - self.current_steering_angle
-        print(f"Proportional error: {self.proportional_error}")
-        # I
-        self.integral_error += self.proportional_error
-        #self.integral_error = max((10 / self.ki) , min((20 / self.ki), self.integral_error))
-        print(f"Integral error: {self.integral_error}")
-        if self.delta_t > 0:
-        # D
-            self.derivative_error = (self.proportional_error - self.proportional_error_previous) / self.delta_t
-            print(f"Derivative error: {self.derivative_error}")
+        self.error_dist_to_centerline = self.desired_dist_to_centerline - self.current_dist_to_centerline
+        if self.delta_t != 0:
+            self.derivative_error_dist_to_centerline = (self.current_dist_to_centerline - self.previous_dist_to_centerline) / self.delta_t
+        self.integral_error_dist_to_centerline += self.error_dist_to_centerline
         # Update PWM
-        self.pwm = self.kp * self.proportional_error + self.ki * self.integral_error + self.kd * self.derivative_error
-        print()
-        print(f"Proportional Part: {self.proportional_error * self.kp}")
-        print(f"Integral Part: {self.integral_error * self.ki}")
-        print(f"Derivative Part: {self.derivative_error * self.kd}")
-        print()
-
+        self.pwm = self.kp * self.error_dist_to_centerline + self.ki * self.integral_error_dist_to_centerline + self.kd * self.derivative_error_dist_to_centerline
         # Contrain PWM
         self.pwm = max(10,min(self.pwm, 20))
         
         # Update previous variables 
-        self.previous_steering_angle = self.current_steering_angle
-        self.proportional_error_previous = self.proportional_error
-        self.last_updated = time.monotonic()
-        # # Add delay
+        self.previous_dist_to_centerline = self.current_dist_to_centerline
+        self.last_updated = time.time()
+        # Add delay
         time.sleep(0.01)
 
     def reset(self):
 
         self.pwm = 15
         self.delta_t = 0
-        self.last_updated = time.monotonic()
-        self.desired_steering_angle = 0
-        self.current_steering_angle = 0
-        self.previous_steering_angle = 0
-        self.proportional_error = 0
-        self.derivative_error = 0
-        self.integral_error = 0
+        self.last_updated = 0
+        self.desired_dist_to_centerline = 0
+        self.current_dist_to_centerline = 0
+        self.previous_dist_to_centerline = 0
+        self.error_dist_to_centerline = 0
+        self.derivative_error_dist_to_centerline = 0
+        self.integral_error_dist_to_centerline = 0
