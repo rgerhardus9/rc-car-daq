@@ -8,10 +8,18 @@ import numpy as np
 import cv2
 
 # Initialize camera
-cap = cv2.VideoCapture(0)
+cap = cv2.VideoCapture(0, cv2.CSP_V4L2)
+
+cap.set(cv2.CAP_PROP_FRAME_WIDTH, 1920)
+
+WIDTH = cap.get(cv2.CAP_PROP_FRAME_WIDTH)
+HEIGHT = cap.get(cv2.CAP_PROP_FRAME_HEIGHT)
+
+print(WIDTH, HEIGHT)
+
 cameraCenter = cap.get(cv2.CAP_PROP_FRAME_WIDTH) / 2
-fx,fy = 0, int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT)/3)
-fw,fh = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH)), int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT)-fy)
+fx, fy = 0, int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT)/4)
+fw, fh = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH)), int((cap.get(cv2.CAP_PROP_FRAME_HEIGHT)*0.1667)+fy)
 steeringFactor = 5  # Defines the min/max duty cycle range or "steering aggresssivness"
 p = float(10**1)  # Floating point to handle rounding using integer math instead of the slower round(num, 2)
 
@@ -94,7 +102,7 @@ def main():
         while True:
             ret, frame = cap.read()
 
-            # Creates mask to only look at the bottom 2/3 of a frame
+            # Creates mask to only look at the middle 4/12 to 8/12ths of the frame
             frameMask = np.zeros(frame.shape[:2], dtype="uint8")
             frameMask[fy:fy+fh, fx:fx+fw] = 255
             frame_new = cv2.bitwise_and(frame, frame, mask=frameMask)
@@ -137,6 +145,10 @@ def main():
 
         # Close GPIO chip
         lgpio.gpiochip_close(HANDLE)
+
+        # Release resources
+        cap.release()
+        cv2.destroyAllWindows()
 
 
 if __name__ == "__main__":
