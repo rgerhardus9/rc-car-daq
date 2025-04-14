@@ -9,6 +9,7 @@
 #include <linux/i2c-dev.h> // i2c_rdwr_ioctl_data, I2C_RDWR
 #include <sys/ioctl.h> // ioctl()
 #include <unistd.h> // close()
+#include <stdio.h>
 
 const uint8_t REG_ACC = 0x34;
 const uint8_t REG_ANG = 0x3d;
@@ -60,8 +61,13 @@ int _IMU_read_vec(IMU imu, uint8_t reg, int16_t data[3]) {
 
 int IMU_read_acceleration(IMU imu, double acceleration[3]) {
 	int16_t data[3];
+	// Data is uninitialized - passed into _IMU_read_vec as output parameter
+	printf("bus: %i, address: %i\n", imu.bus, imu.address);
 	int res = _IMU_read_vec(imu, REG_ACC, data);
-	if (res < 0) return res;
+	if (res < 0) {
+		fprintf(stderr, "error: %d failed _IMU_read_vec\n", res);
+		return res;
+	}
 	for (size_t i = 0; i < 3; i += 1)
 		acceleration[i] = ((double)data[i] / 32768.0) * 16.0 * 9.81;
 	return 0;
