@@ -1,5 +1,7 @@
 import time
 import VelocityProfile
+# from cameraComputeDC import camera_get_dc
+
 
 class ThrottleController:
     def __init__(self, kp, ki, kd):
@@ -18,6 +20,7 @@ class ThrottleController:
         self.integral_error = 0
         self.derivative_error = 0
         self.velocity_profile = VelocityProfile.VelocityProfile
+
 
 
     def update_pwm(self, start_time, velocity_profile):
@@ -89,13 +92,16 @@ class SteeringController:
         self.derivative_error_dist_to_centerline = 0
         self.integral_error_dist_to_centerline = 0
         
-    def update_pwm(self, desired_dist_to_centerline):
+    def update_pwm(self, desired_dist_to_centerline, actual_dist_to_center):
         # Get current time 
         current_time = time.time()
         # Get desired steering angle
         self.desired_dist_to_centerline = desired_dist_to_centerline
-        # Get current steering angle (m and b from MATLAB file "CarSteeringModel" relating PWM signal and steering angle centerline)
-        self.current_dist_to_centerline = #camera value
+        # Get current steering angle (m and b from MATLAB file "CarSteeringModel" relating PWM signal and steering angle centerline)   
+        #    
+        self.current_dist_to_centerline = -1 * actual_dist_to_center     #camera value
+
+
         # Update delta T
         self.delta_t = time.time() - self.last_updated
         # Calculate errors
@@ -104,7 +110,10 @@ class SteeringController:
             self.derivative_error_dist_to_centerline = (self.current_dist_to_centerline - self.previous_dist_to_centerline) / self.delta_t
         self.integral_error_dist_to_centerline += self.error_dist_to_centerline
         # Update PWM
-        self.pwm = self.kp * self.error_dist_to_centerline + self.ki * self.integral_error_dist_to_centerline + self.kd * self.derivative_error_dist_to_centerline
+        self.pwm = 15 + self.kp * self.error_dist_to_centerline + self.ki * self.integral_error_dist_to_centerline + self.kd * self.derivative_error_dist_to_centerline
+
+        print(f"Integral: {self.ki * self.integral_error_dist_to_centerline}")
+        print(f"Proportional: {self.kp * self.error_dist_to_centerline}")
         # Contrain PWM
         self.pwm = max(10,min(self.pwm, 20))
         
