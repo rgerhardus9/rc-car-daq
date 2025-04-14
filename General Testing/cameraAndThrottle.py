@@ -50,7 +50,7 @@ GPIO_CHIP = 0
 # Throttle control
 SIMULATION_TIME = 4.0   # s
 STARTING_SPEED = 0.0    # m/s
-TARGET_SPEED = 15.0     # m/s - NEVER OVER 20.1
+TARGET_SPEED = 20.1     # m/s - NEVER OVER 20.1
 MAX_SPEED = 20.1        # m/s - DO NOT CHANGE
 MAX_ACCELERATION = 0.054    # 5.4 m/s^2 = 0.054 m/ (10 ms)^2
 ACCELERATION_STEP_10MS = (MAX_ACCELERATION) / (MAX_SPEED / 5)
@@ -218,7 +218,7 @@ def steering_pwm_thread():
         # STEERING PWM UPDATE RATE - limits is about 200 us (0.0002s) ==> 5000 Hz
         # Usually about 70-150 us for calculations. 
         # TODO: How often does steering_duty_cycle actually update?
-        time.sleep(0.01)  # Small delay to keep CPU usage low - write duty cycle every 10 ms (100 Hz)
+        time.sleep(0.009)  # Small delay to keep CPU usage low - write duty cycle every 10 ms (100 Hz)
     # Straighten out so we brake with straight wheels
     lgpio.tx_pwm(HANDLE, STEERING_PIN, FREQUENCY, 15.0)
     time.sleep(1.0)
@@ -274,7 +274,7 @@ def throttle_thread():
         lgpio.tx_pwm(HANDLE, THROTTLE_PIN, FREQUENCY, 12.0)
         time.sleep(3.0)
     lgpio.tx_pwm(HANDLE, THROTTLE_PIN, FREQUENCY, 15.0)
-    time.sleep(2.0)
+    time.sleep(0.5)
 
     # Give back manual control
     print("THREAD: Ending Throttle. Giving back control.")
