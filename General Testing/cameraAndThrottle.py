@@ -12,23 +12,24 @@ import threading
 # Initialize camera
 cap = cv2.VideoCapture(0)
 
-# Set camera parameters - won't let me do this. Throws GStreamer errors.
-'''
-cap.set(cv2.CAP_PROP_FRAME_WIDTH, 1920)  # Reduce width to 320 pixels
-cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 1080)  # Reduce height to 240 pixels
-'''
+# DON'T SET FPS
+# cap.set(cv2.CAP_PROP_FPS, 90)
 
-cap.set(cv2.CAP_PROP_FPS, 90)
+
+# Set camera parameters - ONLY set width and it will adjust
+cap.set(cv2.CAP_PROP_FRAME_WIDTH, 1920)  # Reduce width to 320 pixels
+
+
 
 # This width isn't right! USB defaults it to 320
 width = cap.get(cv2.CAP_PROP_FRAME_WIDTH)
-print(f"width: {width} (wrong)")
+print(f"width: {width}")
 # Default
 if width == 0:
-    width = 160
+    width = 1920
 
 # Manually setting this to the USB default
-cameraCenter = 160
+cameraCenter = width / 2
 
 
 steeringFactor = 3  # Defines the min/max duty cycle range or "steering aggresssivness"
@@ -248,7 +249,7 @@ def throttle_thread():
     print(f"Starting throttle {throttle_dc}")
     while not stop_event.is_set() and (time.time() - throttle_start_time < SIMULATION_TIME):
         # Comment this out for speed
-        print(f"THROTTLE - Writing PWM: {round(throttle_dc, 3)} at {round(time.time() - throttle_start_time, 2)}")
+        # print(f"THROTTLE - Writing PWM: {round(throttle_dc, 3)} at {round(time.time() - throttle_start_time, 2)}")
         lgpio.tx_pwm(HANDLE, THROTTLE_PIN, FREQUENCY, throttle_dc)
         # If we have not reached TARGET_SPEED
         if (throttle_dc < TARGET_SPEED_DC):
