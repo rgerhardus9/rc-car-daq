@@ -1,6 +1,6 @@
 // This script is to test the camera function with C++ and compare the speed to the Python file
 // Compile with: g++ cam.cpp -o cam `pkg-config --cflags --libs opencv4`
-
+#test comment
 #include <opencv2/opencv.hpp>
 
 #include <iostream>
