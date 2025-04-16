@@ -459,9 +459,8 @@ def main():
         # Copy these into arrays on local machine to visualize data 
         if COLLECT:
             print(f"Steer DC:\n\t{steerDCArr}\n\n")
-            print(f"Steer Time:\n\t{steerTimeArr}\n\n")
             print(f"Throttle DC:\n\t{throttleDCArr}\n\n")
-            print(f"Throttle Time:\n\t{throttleTimeArr}")
+            print(f"Distance to Center:\n\t{steerDistanceToCenterArr}")
 
         
         
