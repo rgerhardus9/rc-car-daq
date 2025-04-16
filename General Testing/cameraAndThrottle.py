@@ -10,21 +10,22 @@ import cv2
 import threading
 
 # Initialize camera
-cap = cv2.VideoCapture(0)
+cap = cv2.VideoCapture(0, cv2.CAP_V4L2)
 
-# DON'T SET FPS
-# cap.set(cv2.CAP_PROP_FPS, 90)
-
-
-# Set camera parameters - ONLY set width and it will adjust
-# TODO: Get this to be faster with higher resolution!
-cap.set(cv2.CAP_PROP_FRAME_WIDTH, 1920)  # MAIN LOOP TIMES (~). 1920p=200ms, 1024p=100ms, 640p=35ms, 320p=11ms 
+# Set mode to MJPG (faster) - needs to be done before the pixel blocks below
+cap.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter_fourcc(*'MJPG'))
 
 
+# Set camera parameters - Must all be in a block together - Camera has a FIXED ASPECT RATIO
+cap.set(cv2.CAP_PROP_FRAME_WIDTH, 800) # MAIN LOOP TIMES with MJPG (~). 1920p=60ms, 1280p=35ms, 800p=15ms, 640p=13ms
+cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 600)
+cap.set(cv2.CAP_PROP_FPS, 90) 
 
-# This width isn't right! USB defaults it to 320
+
+# Get width in pixels - Should be what we set above
 width = cap.get(cv2.CAP_PROP_FRAME_WIDTH)
-print(f"width: {width}")
+height = cap.get(cv2.CAP_PROP_FRAME_HEIGHT)
+print(f"width: {width}, height: {height}")
 # Default
 if width == 0:
     width = 1920
@@ -50,14 +51,22 @@ INPUT_PIN = 6      # Pin 31 ==> Read receiver PWM to change MUX signal
 FREQUENCY = 100  # FREQUENCY in Hz
 GPIO_CHIP = 0
 # Throttle control
-SIMULATION_TIME = 4.0   # s
+SIMULATION_TIME = 15.0   # s
 STARTING_SPEED = 0.0    # m/s
 TARGET_SPEED = 20.1     # m/s - NEVER OVER 20.1
 MAX_SPEED = 20.1        # m/s - DO NOT CHANGE
-MAX_ACCELERATION = 0.054    # 5.4 m/s^2 = 0.054 m/ (10 ms)^2
+MAX_ACCELERATION = 0.001    # 5.4 m/s^2 = 0.054 m/ (10 ms)^2
 ACCELERATION_STEP_10MS = (MAX_ACCELERATION) / (MAX_SPEED / 5)
 STARTING_SPEED_DC = (5/MAX_SPEED) * STARTING_SPEED + 15.0   # Percent
 TARGET_SPEED_DC = (5/MAX_SPEED) * TARGET_SPEED + 15.0       # Percent
+
+# Data Collection
+steerTimeArr = []
+steerDCArr = []
+steerDistanceToCenterArr = []
+throttleTimeArr = []
+throttleDCArr = []
+
 
 # Mutexes
 steering_lock = threading.Lock()
@@ -213,14 +222,13 @@ def steering_pwm_thread():
         # Lock so steering_duty_cycle doesn't change during execution
         with steering_lock:
             lgpio.tx_pwm(HANDLE, STEERING_PIN, FREQUENCY, steering_duty_cycle)
-            print(f"STEERING - Writing PWM: {round(steering_duty_cycle, 2)} at {round(time.time() - pwm_steer_start, 5)}")   
-            # print(f"Thread running with steering duty cycle: {steering_duty_cycle}") # Gonna print a lot
-            # print(f"Time for thread to send steering dc: {time.time() - pwm_steer_start}") # This is much faster than 10ms, so function is limited by time.sleep()
+            steerTime = round(((time.time() - pwm_steer_start)), 3)
+            print(f"STEERING - Writing PWM: {round(steering_duty_cycle, 2)} at {steerTime * 1000} ms.")   
 
         # STEERING PWM UPDATE RATE - limits is about 200 us (0.0002s) ==> 5000 Hz
         # Usually about 70-150 us for calculations. 
         # TODO: How often does steering_duty_cycle actually update?
-        time.sleep(0.009)  # Small delay to keep CPU usage low - write duty cycle every 10 ms (100 Hz)
+        time.sleep(0.010)  # Write duty cycle every 10 ms (100 Hz)
     # Straighten out so we brake with straight wheels
     lgpio.tx_pwm(HANDLE, STEERING_PIN, FREQUENCY, 15.0)
     time.sleep(1.0)
@@ -250,7 +258,7 @@ def throttle_thread():
     print(f"Starting throttle {throttle_dc}")
     while not stop_event.is_set() and (time.time() - throttle_start_time < SIMULATION_TIME):
         # Comment this out for speed
-        # print(f"THROTTLE - Writing PWM: {round(throttle_dc, 3)} at {round(time.time() - throttle_start_time, 2)}")
+        print(f"THROTTLE - Writing PWM: {round(throttle_dc, 3)} at {round(time.time() - throttle_start_time, 2)}")
         lgpio.tx_pwm(HANDLE, THROTTLE_PIN, FREQUENCY, throttle_dc)
         # If we have not reached TARGET_SPEED
         if (throttle_dc < TARGET_SPEED_DC):
@@ -264,7 +272,7 @@ def throttle_thread():
             time.sleep(3.0)
             lgpio.tx_pwm(HANDLE, THROTTLE_PIN, FREQUENCY, throttle_dc)
 
-        time.sleep(0.009)   # Aim to update at 100 Hz (0.01s)
+        time.sleep(0.010)   # Aim to update at 100 Hz (0.01s)
 
     print("3 - stop event")
 
@@ -333,13 +341,17 @@ def main():
     # Camera steering module
     try:
         while not stop_event.is_set():
+
+            # t0 = time.time()
+
             ret, frame = cap.read()
             if not ret:
                 print("Failed to open camera")
                 break
             
+
             # Define the region (change as needed) - top works best for sharp turns
-            region = "middle"  # Options: "top (2/3)", "middle(1/3)", "bottom(2/3)"
+            region = "top"  # Options: "top (2/3)", "middle(1/3)", "bottom(2/3)"
 
             # Define region boundaries
             if region == "top":
@@ -358,7 +370,10 @@ def main():
 
             mask = get_mask(frame_new)
 
+
             new_duty_cycle = get_duty_cycle(mask)
+
+            # Time end
 
             if new_duty_cycle < 0:
                 # Kill everything - kills threads too
@@ -390,8 +405,9 @@ def main():
 
             # Where is the 90 FPS limit coming from in code?
             # If we print the time here I bet it operates more often than
-            time.sleep(0.005) 
+            # time.sleep(0.005) 
 
+            # print(f"Main loop took {time.time() - t0} seconds\n")
 
         
     except KeyboardInterrupt:
