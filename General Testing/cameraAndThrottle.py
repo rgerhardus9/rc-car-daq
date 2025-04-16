@@ -17,7 +17,8 @@ cap = cv2.VideoCapture(0)
 
 
 # Set camera parameters - ONLY set width and it will adjust
-cap.set(cv2.CAP_PROP_FRAME_WIDTH, 1920)  # Reduce width to 320 pixels
+# TODO: Get this to be faster with higher resolution!
+cap.set(cv2.CAP_PROP_FRAME_WIDTH, 1920)  # MAIN LOOP TIMES (~). 1920p=200ms, 1024p=100ms, 640p=35ms, 320p=11ms 
 
 
 
