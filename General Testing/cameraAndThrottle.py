@@ -6,6 +6,7 @@ import lgpio
 import time
 import numpy as np
 import cv2
+import matplotlib.pyplot as plt
 
 import threading
 
@@ -34,7 +35,7 @@ if width == 0:
 cameraCenter = width / 2
 
 
-steeringFactor = 3  # Defines the min/max duty cycle range or "steering aggresssivness"
+steeringFactor = 1  # Defines the min/max duty cycle range or "steering aggresssivness"
 neutralDuty = 15  # Duty cycle in which the car goes straight
 p = float(10**2)  # Floating point to handle rounding using integer math instead of the slower round(num, 2)
 # Initialize throttle and steering PWM values
@@ -51,16 +52,17 @@ INPUT_PIN = 6      # Pin 31 ==> Read receiver PWM to change MUX signal
 FREQUENCY = 100  # FREQUENCY in Hz
 GPIO_CHIP = 0
 # Throttle control
-SIMULATION_TIME = 15.0   # s
+SIMULATION_TIME = 4.0   # s
 STARTING_SPEED = 0.0    # m/s
 TARGET_SPEED = 20.1     # m/s - NEVER OVER 20.1
 MAX_SPEED = 20.1        # m/s - DO NOT CHANGE
-MAX_ACCELERATION = 0.001    # 5.4 m/s^2 = 0.054 m/ (10 ms)^2
+MAX_ACCELERATION = 0.054    # 5.4 m/s^2 = 0.054 m/ (10 ms)^2
 ACCELERATION_STEP_10MS = (MAX_ACCELERATION) / (MAX_SPEED / 5)
 STARTING_SPEED_DC = (5/MAX_SPEED) * STARTING_SPEED + 15.0   # Percent
 TARGET_SPEED_DC = (5/MAX_SPEED) * TARGET_SPEED + 15.0       # Percent
 
 # Data Collection
+COLLECT = False
 steerTimeArr = []
 steerDCArr = []
 steerDistanceToCenterArr = []
@@ -120,6 +122,7 @@ def get_duty_cycle(mask):
             # print(f"center_x: {center_x}, should be ~160")
 
             # Dynamic steeringFactor
+            steerDistanceToCenterArr.append(center_x - cameraCenter)
             ratioToCenter = (center_x - cameraCenter) / cameraCenter    # Ratio of steering relative to frame size (-1 to 1)
             # print(f"ratio to center: {ratioToCenter}\n")
             steeringFactor = 5 * abs(ratioToCenter)
@@ -223,11 +226,12 @@ def steering_pwm_thread():
         with steering_lock:
             lgpio.tx_pwm(HANDLE, STEERING_PIN, FREQUENCY, steering_duty_cycle)
             steerTime = round(((time.time() - pwm_steer_start)), 3)
-            print(f"STEERING - Writing PWM: {round(steering_duty_cycle, 2)} at {steerTime * 1000} ms.")   
+            steerDCArr.append(steering_duty_cycle)
+            print(f"STEERING - Writing PWM: {round(steering_duty_cycle, 2)} at {steerTime * 1000} ms.") 
 
-        # STEERING PWM UPDATE RATE - limits is about 200 us (0.0002s) ==> 5000 Hz
-        # Usually about 70-150 us for calculations. 
-        # TODO: How often does steering_duty_cycle actually update?
+
+        steerTimeArr.append(steerTime)
+        # STEERING PWM UPDATE RATE - don't go faster than camera 
         time.sleep(0.010)  # Write duty cycle every 10 ms (100 Hz)
     # Straighten out so we brake with straight wheels
     lgpio.tx_pwm(HANDLE, STEERING_PIN, FREQUENCY, 15.0)
@@ -258,8 +262,11 @@ def throttle_thread():
     print(f"Starting throttle {throttle_dc}")
     while not stop_event.is_set() and (time.time() - throttle_start_time < SIMULATION_TIME):
         # Comment this out for speed
-        print(f"THROTTLE - Writing PWM: {round(throttle_dc, 3)} at {round(time.time() - throttle_start_time, 2)}")
+        throtTime = round(time.time() - throttle_start_time, 2)
+        print(f"THROTTLE - Writing PWM: {round(throttle_dc, 3)} at {throtTime} s.")
         lgpio.tx_pwm(HANDLE, THROTTLE_PIN, FREQUENCY, throttle_dc)
+        throttleTimeArr.append(throtTime)
+        throttleDCArr.append(throttle_dc)
         # If we have not reached TARGET_SPEED
         if (throttle_dc < TARGET_SPEED_DC):
             throttle_dc += ACCELERATION_STEP_10MS
@@ -449,6 +456,14 @@ def main():
         # Release camera
         cap.release()
 
+        # Copy these into arrays on local machine to visualize data 
+        if COLLECT:
+            print(f"Steer DC:\n\t{steerDCArr}\n\n")
+            print(f"Steer Time:\n\t{steerTimeArr}\n\n")
+            print(f"Throttle DC:\n\t{throttleDCArr}\n\n")
+            print(f"Throttle Time:\n\t{throttleTimeArr}")
+
+        
         
         return
 
