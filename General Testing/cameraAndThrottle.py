@@ -126,7 +126,7 @@ def get_duty_cycle(mask):
             ratioToCenter = (center_x - cameraCenter) / cameraCenter    # Ratio of steering relative to frame size (-1 to 1)
 
             mode = 2                                                    # Sets the power that scales duty cycle 
-            steeringFactor = 5 * np.pow(abs(ratioToCenter), mode - 1)   # Sets how aggressive vehicle steers based on how far the line is from the center
+            steeringFactor = 5 * abs(ratioToCenter) ** (mode-1)         # Sets how aggressive vehicle steers based on how far the line is from the center
             steerAmount = ratioToCenter * steeringFactor                # Sets max range -5 to 5 following a quadratic esk formula
 
             # Rounding is faster through integer manipulation
