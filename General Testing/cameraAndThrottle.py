@@ -122,11 +122,12 @@ def get_duty_cycle(mask):
             # print(f"center_x: {center_x}, should be ~160")
 
             # Dynamic steeringFactor
-            steerDistanceToCenterArr.append(center_x - cameraCenter)
+            steerDistanceToCenterArr.append(center_x - cameraCenter)    # Pixels left (-) or right (+) of camera center
             ratioToCenter = (center_x - cameraCenter) / cameraCenter    # Ratio of steering relative to frame size (-1 to 1)
-            # print(f"ratio to center: {ratioToCenter}\n")
-            steeringFactor = 5 * abs(ratioToCenter)
-            steerAmount = ratioToCenter * steeringFactor # should be -5 to 5 now
+
+            mode = 2                                                    # Sets the power that scales duty cycle 
+            steeringFactor = 5 * np.pow(abs(ratioToCenter), mode - 1)   # Sets how aggressive vehicle steers based on how far the line is from the center
+            steerAmount = ratioToCenter * steeringFactor                # Sets max range -5 to 5 following a quadratic esk formula
 
             # Rounding is faster through integer manipulation
             if steerAmount > 0:
@@ -137,7 +138,7 @@ def get_duty_cycle(mask):
 
 
             # Default is -5 to 5 + 15 = (10 to 20)%
-            # print(f"Steer amount rounded: {steerAmountRounded}\n")
+            # From neutral, approach 10% or 20% at a rate equal to the power defined in mode -> (DC = (5*x.*abs(x))+15) for quadratic
             duty_cycle = steerAmountRounded + neutralDuty
             
             # print(f"MAIN update steering dc: {duty_cycle}")
