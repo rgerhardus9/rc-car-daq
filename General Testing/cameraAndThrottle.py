@@ -33,8 +33,10 @@ if width == 0:
 # Manually setting this to the USB default
 cameraCenter = width / 2
 
+# 1 and 2 is working best - 4/20
+sensitivity = 1  # Defines the min/max duty cycle range or "steering aggresssivness"
+mode = 2
 
-steeringFactor = 1  # Defines the min/max duty cycle range or "steering aggresssivness"
 neutralDuty = 15  # Duty cycle in which the car goes straight
 p = float(10**2)  # Floating point to handle rounding using integer math instead of the slower round(num, 2)
 # Initialize throttle and steering PWM values
@@ -51,11 +53,11 @@ INPUT_PIN = 6      # Pin 31 ==> Read receiver PWM to change MUX signal
 FREQUENCY = 100  # FREQUENCY in Hz
 GPIO_CHIP = 0
 # Throttle control
-SIMULATION_TIME = 4.0   # s
+SIMULATION_TIME = 3.0   # s
 STARTING_SPEED = 0.0    # m/s
-TARGET_SPEED = 20.1     # m/s - NEVER OVER 20.1
+TARGET_SPEED = 10.0     # m/s - NEVER OVER 20.1
 MAX_SPEED = 20.1        # m/s - DO NOT CHANGE
-MAX_ACCELERATION = 0.054    # 5.4 m/s^2 = 0.054 m/ (10 ms)^2
+MAX_ACCELERATION = 0.014    # 5.4 m/s^2 = 0.054 m/ (10 ms)^2
 ACCELERATION_STEP_10MS = (MAX_ACCELERATION) / (MAX_SPEED / 5)
 STARTING_SPEED_DC = (5/MAX_SPEED) * STARTING_SPEED + 15.0   # Percent
 TARGET_SPEED_DC = (5/MAX_SPEED) * TARGET_SPEED + 15.0       # Percent
@@ -124,8 +126,8 @@ def get_duty_cycle(mask):
             steerDistanceToCenterArr.append(center_x - cameraCenter)    # Pixels left (-) or right (+) of camera center
             ratioToCenter = (center_x - cameraCenter) / cameraCenter    # Ratio of steering relative to frame size (-1 to 1)
 
-            mode = 2                                                    # Sets the power that scales duty cycle 
-            steeringFactor = 5 * abs(ratioToCenter) ** (mode-1)         # Sets how aggressive vehicle steers based on how far the line is from the center
+                                                                # Sets the power that scales duty cycle 
+            steeringFactor = 5 * sensitivity * abs(ratioToCenter) ** (mode-1)         # Sets how aggressive vehicle steers based on how far the line is from the center
             steerAmount = ratioToCenter * steeringFactor                # Sets max range -5 to 5 following a quadratic esk formula
 
             # Rounding is faster through integer manipulation
@@ -263,7 +265,7 @@ def throttle_thread():
     while not stop_event.is_set() and (time.time() - throttle_start_time < SIMULATION_TIME):
         # Comment this out for speed
         throtTime = round(time.time() - throttle_start_time, 2)
-        print(f"THROTTLE - Writing PWM: {round(throttle_dc, 3)} at {throtTime} s.")
+        # print(f"THROTTLE - Writing PWM: {round(throttle_dc, 3)} at {throtTime} s.")
         lgpio.tx_pwm(HANDLE, THROTTLE_PIN, FREQUENCY, throttle_dc)
         throttleTimeArr.append(throtTime)
         throttleDCArr.append(throttle_dc)
