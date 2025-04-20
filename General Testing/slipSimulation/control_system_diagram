@@ -1,0 +1,31 @@
+digraph {
+	rankdir=LR size=10
+	T [label="Target Speed
+(19 m/s)"]
+	C [label="P Controller"]
+	S [label="Throttle
+Smoother"]
+	SD [label="Slip
+Detection"]
+	D [label="Throttle
+Delay Buffer"]
+	VM [label="Vehicle Model
+(1st Order)"]
+	A [label="Acceleration + Noise
+(IMU)"]
+	KF [label="Kalman Filter"]
+	WS [label="Wheel Speed Sensor"]
+	GPS [label="GPS Sensor"]
+	T -> C
+	C -> S
+	S -> SD
+	SD -> D
+	D -> VM
+	VM -> A
+	A -> KF
+	VM -> WS
+	KF -> SD [label="Est. Speed"]
+	WS -> SD [label="Wheel Speed"]
+	VM -> GPS
+	GPS -> KF
+}

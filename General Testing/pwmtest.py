@@ -64,10 +64,10 @@ def main():
         
         # START - Test forward throttle
         while (duty_cycle < 16.5):
-            duty_cycle += 0.05
+            # duty_cycle += 0.05
             print(f"Duty cycle incremented to {duty_cycle}")
             lgpio.tx_pwm(handle, pin, frequency, duty_cycle)  # Start PWM
-            time.sleep(0.05)   # Sleep for 1 second
+            time.sleep(1.0)   # Sleep for 1 second
         # END - Test forward throttle
 
         #lgpio.tx_pwm(handle, pin, frequency, 10.3)  # Start PWM
