@@ -53,14 +53,18 @@ INPUT_PIN = 6      # Pin 31 ==> Read receiver PWM to change MUX signal
 FREQUENCY = 100  # FREQUENCY in Hz
 GPIO_CHIP = 0
 # Throttle control
-SIMULATION_TIME = 3.0   # s
-STARTING_SPEED = 0.0    # m/s
-TARGET_SPEED = 10.0     # m/s - NEVER OVER 20.1
+SIMULATION_TIME = 3.2   # s
+STARTING_SPEED = 2.0    # m/s
+TARGET_SPEED = 19.0     # m/s - NEVER OVER 20.1
 MAX_SPEED = 20.1        # m/s - DO NOT CHANGE
-MAX_ACCELERATION = 0.014    # 5.4 m/s^2 = 0.054 m/ (10 ms)^2
+MAX_ACCELERATION = 0.050    # 5.4 m/s^2 = 0.054 m/ (10 ms)^2
 ACCELERATION_STEP_10MS = (MAX_ACCELERATION) / (MAX_SPEED / 5)
 STARTING_SPEED_DC = (5/MAX_SPEED) * STARTING_SPEED + 15.0   # Percent
 TARGET_SPEED_DC = (5/MAX_SPEED) * TARGET_SPEED + 15.0       # Percent
+
+# Ramp acceleration (want slower at beginning)
+accRamp = np.linspace(0.016, 0.01, int(SIMULATION_TIME // 0.008))
+accRamp = accRamp.tolist()
 
 # Data Collection
 COLLECT = False
@@ -271,14 +275,19 @@ def throttle_thread():
         throttleDCArr.append(throttle_dc)
         # If we have not reached TARGET_SPEED
         if (throttle_dc < TARGET_SPEED_DC):
-            throttle_dc += ACCELERATION_STEP_10MS
+            try:
+                throttle_dc += accRamp[-1]
+                print(f"Accel Rate: {accRamp[-1]}")
+                accRamp.pop()
+            except:
+                break
         else:
             throttle_dc = 15.0  # Brake for 3 seconds, then neutral
-            lgpio.tx_pwm(HANDLE, THROTTLE_PIN, FREQUENCY, 12.0)
+            lgpio.tx_pwm(HANDLE, THROTTLE_PIN, FREQUENCY, 10.5)
             print("Max speed hit. Braking.")
             print("4 - stop event")
             stop_event.set()
-            time.sleep(3.0)
+            time.sleep(2.0)
             lgpio.tx_pwm(HANDLE, THROTTLE_PIN, FREQUENCY, throttle_dc)
 
         time.sleep(0.010)   # Aim to update at 100 Hz (0.01s)
@@ -290,8 +299,8 @@ def throttle_thread():
     if (throttle_dc > 15.0):
         throttle_dc = 15.0
         print("Time over. Braking.")
-        lgpio.tx_pwm(HANDLE, THROTTLE_PIN, FREQUENCY, 12.0)
-        time.sleep(3.0)
+        lgpio.tx_pwm(HANDLE, THROTTLE_PIN, FREQUENCY, 10.5)
+        time.sleep(2.0)
     lgpio.tx_pwm(HANDLE, THROTTLE_PIN, FREQUENCY, 15.0)
     time.sleep(0.5)
 
@@ -392,7 +401,7 @@ def main():
                 print("1 - stop event")
                 stop_event.set()
 
-                lgpio.tx_pwm(HANDLE, THROTTLE_PIN, FREQUENCY, 12.0)
+                lgpio.tx_pwm(HANDLE, THROTTLE_PIN, FREQUENCY, 10.5)
                 time.sleep(0.5)
                 lgpio.tx_pwm(HANDLE, THROTTLE_PIN, FREQUENCY, 15.0)
                 lgpio.tx_pwm(HANDLE, STEERING_PIN, FREQUENCY, 15.0)
@@ -435,7 +444,7 @@ def main():
 
         # BRAKE
         if (throttle_dc > 15.0):
-            lgpio.tx_pwm(HANDLE, THROTTLE_PIN, FREQUENCY, 11.0)
+            lgpio.tx_pwm(HANDLE, THROTTLE_PIN, FREQUENCY, 10.5)
             time.sleep(1.0)
         # NEUTRAL
         lgpio.tx_pwm(HANDLE, THROTTLE_PIN, FREQUENCY, 15.0)
@@ -457,6 +466,8 @@ def main():
 
         # Release camera
         cap.release()
+
+        print(f"Average acceleration: {np.average(accRamp)}")
 
         # Copy these into arrays on local machine to visualize data 
         if COLLECT:
