@@ -28,7 +28,7 @@ height = cap.get(cv2.CAP_PROP_FRAME_HEIGHT)
 print(f"width: {width}, height: {height}")
 # Default
 if width == 0:
-    width = 800
+    width = 1920
 
 # Manually setting this to the USB default
 cameraCenter = width / 2
@@ -42,6 +42,7 @@ p = float(10**2)  # Floating point to handle rounding using integer math instead
 # Initialize throttle and steering PWM values
 global steering_duty_cycle
 steering_duty_cycle = 15.0
+global throttle_dc
 throttle_dc = 15.0
 
 # Define pins and constants
@@ -53,13 +54,18 @@ FREQUENCY = 100  # FREQUENCY in Hz
 GPIO_CHIP = 0
 # Throttle control
 SIMULATION_TIME = 60.0   # s
-STARTING_SPEED = 2.5    # m/s
+STARTING_SPEED = 3.0    # m/s
 TARGET_SPEED = 20.1     # m/s - NEVER OVER 20.1
 MAX_SPEED = 20.1        # m/s - DO NOT CHANGE
 MAX_ACCELERATION = 0.054    # 5.4 m/s^2 = 0.054 m/ (10 ms)^2
 ACCELERATION_STEP_10MS = (MAX_ACCELERATION) / (MAX_SPEED / 5)
 STARTING_SPEED_DC = (5/MAX_SPEED) * STARTING_SPEED + 15.0   # Percent
 TARGET_SPEED_DC = (5/MAX_SPEED) * TARGET_SPEED + 15.0       # Percent
+
+
+# Ramp acceleration (want slower at beginning)
+accRamp = np.linspace(0.017, 0.01, int(SIMULATION_TIME // 0.008))
+accRamp = accRamp.tolist()
 
 # Data Collection
 COLLECT = False
@@ -84,8 +90,6 @@ lgpio.gpio_claim_input(HANDLE, INPUT_PIN, lgpio.SET_PULL_DOWN)
 
 # Initialize pin values that need it
 lgpio.gpio_write(HANDLE, SELECT_PIN, 1) # Init to HIGH - Program Generated PWMs
-
-# Initialize car
 lgpio.tx_pwm(HANDLE, THROTTLE_PIN, FREQUENCY, 15.0)
 
 global stop_event
@@ -127,8 +131,6 @@ def get_duty_cycle(mask):
             steerDistanceToCenterArr.append(center_x - cameraCenter)    # Pixels left (-) or right (+) of camera center
             ratioToCenter = (center_x - cameraCenter) / cameraCenter    # Ratio of steering relative to frame size (-1 to 1)
 
-
-            # CHECK THIS
                                                                 # Sets the power that scales duty cycle 
             steeringFactor = 5 * abs(ratioToCenter) ** (mode-1)         # Sets how aggressive vehicle steers based on how far the line is from the center
             steerAmount = ratioToCenter * steeringFactor                # Sets max range -5 to 5 following a quadratic esk formula
@@ -271,6 +273,48 @@ def mux_thread():
 
             
 
+
+# Set SIMULATION_TIME, MAX_ACCELERATION, STARTING_SPEED, and TARGET_SPEED
+def throttle_thread():
+    global stop_event
+    global throttle_dc
+    bump = True
+    ctr = 0
+    throttle_start_time = time.time()
+    print("THREAD: Throttle Running.")
+    throttle_dc = STARTING_SPEED_DC
+    print(f"Starting throttle {throttle_dc}")
+    while not stop_event.is_set() and (time.time() - throttle_start_time < SIMULATION_TIME):
+        throtTime = round(time.time() - throttle_start_time, 2)
+        if (bump):
+            # print(f"THROTTLE - Writing PWM: {round(throttle_dc, 3)} at {throtTime} s.")
+            lgpio.tx_pwm(HANDLE, THROTTLE_PIN, FREQUENCY, throttle_dc)
+            time.sleep(0.200)   # Aim to update at 100 Hz (0.01s)
+            bump = False
+        else:
+            lgpio.tx_pwm(HANDLE, THROTTLE_PIN, FREQUENCY, 15.0)
+            time.sleep(0.400)
+            bump = True
+
+
+    print("3 - stop event")
+
+    stop_event.set()
+
+    if (throttle_dc > 15.5):
+        throttle_dc = 15.0
+        print("Time over. Braking.")
+        lgpio.tx_pwm(HANDLE, THROTTLE_PIN, FREQUENCY, 11.0)
+        time.sleep(2.0)
+    lgpio.tx_pwm(HANDLE, THROTTLE_PIN, FREQUENCY, 15.0)
+    time.sleep(0.5)
+
+    return
+
+
+
+
+
 def main():
 
     global stop_event
@@ -287,10 +331,10 @@ def main():
     mux_thread_instance = threading.Thread(target=mux_thread, daemon=False)
     mux_thread_instance.start()
 
-    # Apply constant throttle
-    throttle_dc = STARTING_SPEED_DC
-    lgpio.tx_pwm(HANDLE, THROTTLE_PIN, FREQUENCY, throttle_dc)
-    
+    # Throttle thread instance
+    throttle_thread_instance = threading.Thread(target=throttle_thread, daemon=False)
+    throttle_thread_instance.start()
+
 
     # Camera steering module
     try:
@@ -305,7 +349,7 @@ def main():
             
 
             # Define the region (change as needed) - top works best for sharp turns
-            region = "middle"  # Options: "top (2/3)", "middle(1/3)", "bottom(2/3)"
+            region = "bottom"  # Options: "top (2/3)", "middle(1/3)", "bottom(2/3)"
 
             # Define region boundaries
             if region == "top":
@@ -354,16 +398,17 @@ def main():
         # Maybe stop throttle here
         print("2 - stop event")
         stop_event.set()
-        lgpio.tx_pwm(HANDLE, THROTTLE_PIN, FREQUENCY, 15.0)
+        time.sleep(2.0)    # Make sure threads don't write values
 
         # End threads
         # mux_thread_instance.join()
         steering_pwm_thread_instance.join()
+        throttle_thread_instance.join()
         mux_thread_instance.join()
 
         # BRAKE
         if (throttle_dc > 15.0):
-            lgpio.tx_pwm(HANDLE, THROTTLE_PIN, FREQUENCY, 10.1)
+            lgpio.tx_pwm(HANDLE, THROTTLE_PIN, FREQUENCY, 11.5)
             time.sleep(1.0)
         # NEUTRAL
         lgpio.tx_pwm(HANDLE, THROTTLE_PIN, FREQUENCY, 15.0)
@@ -386,6 +431,7 @@ def main():
         # Release camera
         cap.release()
 
+        print(f"Average acceleration: {np.average(accRamp)}")
 
         # Copy these into arrays on local machine to visualize data 
         if COLLECT:
