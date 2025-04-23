@@ -53,17 +53,17 @@ INPUT_PIN = 6      # Pin 31 ==> Read receiver PWM to change MUX signal
 FREQUENCY = 100  # FREQUENCY in Hz
 GPIO_CHIP = 0
 # Throttle control
-SIMULATION_TIME = 3.2   # s
-STARTING_SPEED = 2.0    # m/s
-TARGET_SPEED = 19.0     # m/s - NEVER OVER 20.1
+SIMULATION_TIME = 4.0   # s
+STARTING_SPEED = 3.5    # m/s
+TARGET_SPEED = 20.1     # m/s - NEVER OVER 20.1
 MAX_SPEED = 20.1        # m/s - DO NOT CHANGE
-MAX_ACCELERATION = 0.050    # 5.4 m/s^2 = 0.054 m/ (10 ms)^2
+MAX_ACCELERATION = 0.054    # 5.4 m/s^2 = 0.054 m/ (10 ms)^2
 ACCELERATION_STEP_10MS = (MAX_ACCELERATION) / (MAX_SPEED / 5)
 STARTING_SPEED_DC = (5/MAX_SPEED) * STARTING_SPEED + 15.0   # Percent
 TARGET_SPEED_DC = (5/MAX_SPEED) * TARGET_SPEED + 15.0       # Percent
 
 # Ramp acceleration (want slower at beginning)
-accRamp = np.linspace(0.016, 0.01, int(SIMULATION_TIME // 0.008))
+accRamp = np.linspace(0.017, 0.01, int(SIMULATION_TIME // 0.008))
 accRamp = accRamp.tolist()
 
 # Data Collection
@@ -267,7 +267,7 @@ def mux_thread():
             continue
     
     # Allow time for other threads to brake and straighten, then give back control
-    time.sleep(4.0)
+    time.sleep(3.0)
     lgpio.gpio_write(HANDLE, SELECT_PIN, 0)
 
             
@@ -284,18 +284,21 @@ def throttle_thread():
     while not stop_event.is_set() and (time.time() - throttle_start_time < SIMULATION_TIME):
         # Comment this out for speed
         throtTime = round(time.time() - throttle_start_time, 2)
-        # print(f"THROTTLE - Writing PWM: {round(throttle_dc, 3)} at {throtTime} s.")
+        print(f"THROTTLE - Writing PWM: {round(throttle_dc, 3)} at {throtTime} s.")
         lgpio.tx_pwm(HANDLE, THROTTLE_PIN, FREQUENCY, throttle_dc)
         throttleTimeArr.append(throtTime)
         throttleDCArr.append(throttle_dc)
         # If we have not reached TARGET_SPEED
+        # Uncomment for target speed limitation
+        try:
+            # throttle_dc += accRamp[-1]
+            # print(f"Accel Rate: {accRamp[-1]}")
+            accRamp.pop()
+        except:
+            print("Ran out of entries.")
+            break
+        '''
         if (throttle_dc < TARGET_SPEED_DC):
-            try:
-                throttle_dc += accRamp[-1]
-                print(f"Accel Rate: {accRamp[-1]}")
-                accRamp.pop()
-            except:
-                break
         else:
             throttle_dc = 15.0  # Brake for 3 seconds, then neutral
             lgpio.tx_pwm(HANDLE, THROTTLE_PIN, FREQUENCY, 10.1)
@@ -304,6 +307,7 @@ def throttle_thread():
             stop_event.set()
             time.sleep(2.0)
             lgpio.tx_pwm(HANDLE, THROTTLE_PIN, FREQUENCY, throttle_dc)
+        '''
 
         time.sleep(0.010)   # Aim to update at 100 Hz (0.01s)
 
@@ -311,7 +315,7 @@ def throttle_thread():
 
     stop_event.set()
 
-    if (throttle_dc > 15.0):
+    if (throttle_dc > 15.5):
         throttle_dc = 15.0
         print("Time over. Braking.")
         lgpio.tx_pwm(HANDLE, THROTTLE_PIN, FREQUENCY, 10.1)
@@ -408,7 +412,7 @@ def main():
         # Maybe stop throttle here
         print("2 - stop event")
         stop_event.set()
-        time.sleep(0.05)    # Make sure threads don't write values
+        time.sleep(2.0)    # Make sure threads don't write values
 
         # End threads
         # mux_thread_instance.join()

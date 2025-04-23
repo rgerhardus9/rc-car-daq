@@ -53,9 +53,9 @@ INPUT_PIN = 6      # Pin 31 ==> Read receiver PWM to change MUX signal
 FREQUENCY = 100  # FREQUENCY in Hz
 GPIO_CHIP = 0
 # Throttle control
-SIMULATION_TIME = 3.2   # s
+SIMULATION_TIME = 3.4   # s
 STARTING_SPEED = 2.0    # m/s
-TARGET_SPEED = 19.0     # m/s - NEVER OVER 20.1
+TARGET_SPEED = 20.1     # m/s - NEVER OVER 20.1
 MAX_SPEED = 20.1        # m/s - DO NOT CHANGE
 MAX_ACCELERATION = 0.054    # 5.4 m/s^2 = 0.054 m/ (10 ms)^2
 ACCELERATION_STEP_10MS = (MAX_ACCELERATION) / (MAX_SPEED / 5)
@@ -63,13 +63,13 @@ STARTING_SPEED_DC = (5/MAX_SPEED) * STARTING_SPEED + 15.0   # Percent
 TARGET_SPEED_DC = (5/MAX_SPEED) * TARGET_SPEED + 15.0       # Percent
 
 # Ramp acceleration (want slower at beginning)
-accRamp = np.linspace(0.016, 0.01, int(SIMULATION_TIME // 0.006))
+accRamp = np.linspace(0.017, 0.011, int(SIMULATION_TIME // 0.008))
 accRamp = accRamp.tolist()
 
 
 # Correct steering less as time goes 
 # TODO: Model this so it actually represents how sensitive it should be at given speeds (probably exponential)
-speedLimiterNP = np.linspace(1.0, SIMULATION_TIME, int(SIMULATION_TIME // 0.006))
+speedLimiterNP = np.linspace(1.0, SIMULATION_TIME - 0.2, int(SIMULATION_TIME // 0.006))
 speedLimiterNP = speedLimiterNP / SIMULATION_TIME
 speedLimiter = speedLimiterNP.tolist()
 
@@ -147,8 +147,11 @@ def get_duty_cycle(mask, limit):
                 steerAmountRounded = int(steerAmount * p - 0.5) / p
 
             # SPEED (Time right now) based!
-            steerAmountRounded = steerAmountRounded * limit[-1]
-            limit.pop()
+            try:
+                steerAmountRounded = steerAmountRounded * limit[-1]
+                limit.pop()
+            except:
+                return -1
 
             # Default is -5 to 5 + 15 = (10 to 20)%
             # From neutral, approach 10% or 20% at a rate equal to the power defined in mode -> (DC = (5*x.*abs(x))+15) for quadratic
