@@ -51,11 +51,9 @@ def read_pwm_duty_cycle(chip, INPUT_PIN, duration = 0.3):   # 0.3s to calculate 
         pulse_start = time.time()
         try:
             while (time.time() - start_time) < duration:
-                # print(f"Time: {(time.time() - start_time):.5f}")
 
                 # This should work with the input changing - reading high or low of the PWM
                 current_level = lgpio.gpio_read(chip, INPUT_PIN)       
-                # print(f"Current level: {current_level}")
             
                 # Detect level change
                 if current_level != previous_level:
@@ -71,7 +69,7 @@ def read_pwm_duty_cycle(chip, INPUT_PIN, duration = 0.3):   # 0.3s to calculate 
                     previous_level = current_level
                     pulse_start = pulse_end
                 
-                time.sleep(0.00001)  # For even increments
+                time.sleep(0.005)  # For even increments
 
         finally:
             total_time = high_time + low_time
@@ -85,7 +83,7 @@ def read_pwm_duty_cycle(chip, INPUT_PIN, duration = 0.3):   # 0.3s to calculate 
             #print(f"DC: {dc}")
 
             # Change MUX signal or continue - do this in or out of function?
-            if (dc < 14.0 or dc > 16.0):
+            if (dc < 13.0):
                 lgpio.gpio_write(chip, SELECT_PIN, 0)     # Select signal to LOW = PWM transmitter signal
                 return 0
             else:

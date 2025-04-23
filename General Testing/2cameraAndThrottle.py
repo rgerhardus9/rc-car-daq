@@ -33,9 +33,9 @@ if width == 0:
 # Manually setting this to the USB default
 cameraCenter = width / 2
 
-# 1 and 2 is working best - 4/20
+
 sensitivity = 1  # Defines the min/max duty cycle range or "steering aggresssivness"
-mode = 2
+mode = 2         # Sets the power that scales duty cycle 
 
 neutralDuty = 15  # Duty cycle in which the car goes straight
 p = float(10**2)  # Floating point to handle rounding using integer math instead of the slower round(num, 2)
@@ -57,14 +57,21 @@ SIMULATION_TIME = 3.4   # s
 STARTING_SPEED = 2.0    # m/s
 TARGET_SPEED = 20.1     # m/s - NEVER OVER 20.1
 MAX_SPEED = 20.1        # m/s - DO NOT CHANGE
-MAX_ACCELERATION = 0.050    # 5.4 m/s^2 = 0.054 m/ (10 ms)^2
+MAX_ACCELERATION = 0.054    # 5.4 m/s^2 = 0.054 m/ (10 ms)^2
 ACCELERATION_STEP_10MS = (MAX_ACCELERATION) / (MAX_SPEED / 5)
 STARTING_SPEED_DC = (5/MAX_SPEED) * STARTING_SPEED + 15.0   # Percent
 TARGET_SPEED_DC = (5/MAX_SPEED) * TARGET_SPEED + 15.0       # Percent
 
 # Ramp acceleration (want slower at beginning)
-accRamp = np.linspace(0.016, 0.011, int(SIMULATION_TIME // 0.008))
+accRamp = np.linspace(0.017, 0.011, int(SIMULATION_TIME // 0.008))
 accRamp = accRamp.tolist()
+
+
+# Correct steering less as time goes 
+# TODO: Model this so it actually represents how sensitive it should be at given speeds (probably exponential)
+speedLimiterNP = np.linspace(1.0, SIMULATION_TIME - 0.2, int(SIMULATION_TIME // 0.006))
+speedLimiterNP = speedLimiterNP / SIMULATION_TIME
+speedLimiter = speedLimiterNP.tolist()
 
 # Data Collection
 COLLECT = False
@@ -113,7 +120,7 @@ def get_mask(frame):
     return mask
 
 # Return PWM based on horizontal distance of line to camera centerline
-def get_duty_cycle(mask):
+def get_duty_cycle(mask, limit):
     # Find contours
     contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
 
@@ -130,7 +137,6 @@ def get_duty_cycle(mask):
             steerDistanceToCenterArr.append(center_x - cameraCenter)    # Pixels left (-) or right (+) of camera center
             ratioToCenter = (center_x - cameraCenter) / cameraCenter    # Ratio of steering relative to frame size (-1 to 1)
 
-                                                                # Sets the power that scales duty cycle 
             steeringFactor = 5 * sensitivity * abs(ratioToCenter) ** (mode-1)         # Sets how aggressive vehicle steers based on how far the line is from the center
             steerAmount = ratioToCenter * steeringFactor                # Sets max range -5 to 5 following a quadratic esk formula
 
@@ -140,7 +146,12 @@ def get_duty_cycle(mask):
             else:
                 steerAmountRounded = int(steerAmount * p - 0.5) / p
 
-
+            # SPEED (Time right now) based!
+            try:
+                steerAmountRounded = steerAmountRounded * limit[-1]
+                limit.pop()
+            except:
+                return -1
 
             # Default is -5 to 5 + 15 = (10 to 20)%
             # From neutral, approach 10% or 20% at a rate equal to the power defined in mode -> (DC = (5*x.*abs(x))+15) for quadratic
@@ -287,7 +298,7 @@ def throttle_thread():
             print("Max speed hit. Braking.")
             print("4 - stop event")
             stop_event.set()
-            time.sleep(2.0)
+            time.sleep(3.0)
             lgpio.tx_pwm(HANDLE, THROTTLE_PIN, FREQUENCY, throttle_dc)
 
         time.sleep(0.010)   # Aim to update at 100 Hz (0.01s)
@@ -300,7 +311,7 @@ def throttle_thread():
         throttle_dc = 15.0
         print("Time over. Braking.")
         lgpio.tx_pwm(HANDLE, THROTTLE_PIN, FREQUENCY, 10.5)
-        time.sleep(2.0)
+        time.sleep(3.0)
     lgpio.tx_pwm(HANDLE, THROTTLE_PIN, FREQUENCY, 15.0)
     time.sleep(0.5)
 
@@ -389,7 +400,7 @@ def main():
             mask = get_mask(frame_new)
 
 
-            new_duty_cycle = get_duty_cycle(mask)
+            new_duty_cycle = get_duty_cycle(mask, speedLimiter)
 
             # Time end
 

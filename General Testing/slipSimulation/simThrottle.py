@@ -4,7 +4,7 @@ from kalman import KalmanFilter
 
 
 # Simulation parameters
-dt = 0.01   # 100 Hz
+dt = 0.002   # 500 Hz - 2 ms/sample (IMU Rate)
 total_time = 5.0
 steps = int(total_time / dt)
 time = np.linspace(0, total_time, steps)
@@ -20,10 +20,17 @@ wheel_slip_gain = 0.6  # how much wheels overshoot when slipping
 slip_threshold = 0.15
 scaling_factor = 0.6
 
-# Sensor settings
+# Sensor settings - IMU update interval == dt
 accel_noise_std = 3.0   # Actual Std dev of the IMU
-gps_noise_std = 3.0     # TODO: Get std dev of GPS velocity
-gps_update_interval = int(1 / (10*dt))  # 10 Hz
+gps_noise_std = 0.5     # TODO: Get std dev of GPS velocity
+gps_update_interval = int(1 / (50*dt))  # 10 Hz
+wheel_speed_update_interval = int(1 / (10*dt))  # 50 Hz
+
+# Write at 100 Hz (10 ms)
+write_interval = 5*dt
+
+# Display interval info
+print(f"IMU updating at: {dt} s.\nRPM updating at: {wheel_speed_update_interval} s.\nGPS updating at: {gps_update_interval} s.")
 
 # Initialize filter
 kf = KalmanFilter(dt, process_var=0.1, gps_var=gps_noise_std**2)
@@ -52,7 +59,7 @@ def compute_safe_throttle(wheel_speed, est_vehicle_speed, raw_throttle,
                           slip_threshold=0.15, scaling_factor=0.6):
     print(f"Wheel speed: {wheel_speed}\tspeed read in: {est_vehicle_speed}\traw throttle: {raw_throttle}")
     epsilon = 0.01
-    slip = (wheel_speed - est_vehicle_speed) / max(wheel_speed, epsilon)
+    slip = abs(wheel_speed - est_vehicle_speed) / max(wheel_speed, epsilon)
     slip_ratios.append(slip)
     if slip > slip_threshold:
         return raw_throttle * scaling_factor
@@ -68,7 +75,7 @@ for step in range(steps):
     # time
     t = step * dt
 
-    # PID Controller with Kalman filter
+    # PID Controller with Kalman filter - P controller right now
     kf_velocity = kf.get_velocity()
     speed_error = target_speed - kf_velocity
     raw_throttle = np.clip(1 + Kp * speed_error, 0, max_throttle)   # Gets set to max_throttle at beginning because early error is large
@@ -81,9 +88,12 @@ for step in range(steps):
     # Ignore for now
     pwmOP = safe_throttle * 5.0
 
-    # Car responds to throttle (simple first-order model) - should instead be a live reading from Kalman filter
+    # Car responds to throttle (simple first-order model)
     # This is target, and what we should write to our control system, but it should be real readings
+    # NOTE: Should be a live reading from Kalman filter system
     accel = (safe_throttle * target_speed - velocity) / response_time
+
+    # accel updates a lot more often than velocity
     velocity += accel * dt
 
     # TODO: read hall effect sensors for wheel_speed

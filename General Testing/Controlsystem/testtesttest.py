@@ -6,37 +6,33 @@ import lgpio
 import time
 import numpy as np
 import cv2
+from Controller import SteeringController
 
 import threading
 
 # Initialize camera
-cap = cv2.VideoCapture(0, cv2.CAP_V4L2)
+cap = cv2.VideoCapture(0)
 
-# Set mode to MJPG (faster) - needs to be done before the pixel blocks below
-cap.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter_fourcc(*'MJPG'))
+# Set camera parameters - won't let me do this. Throws GStreamer errors.
+'''
+cap.set(cv2.CAP_PROP_FRAME_WIDTH, 1920)  # Reduce width to 320 pixels
+cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 1080)  # Reduce height to 240 pixels
+'''
 
+cap.set(cv2.CAP_PROP_FPS, 90)
 
-# Set camera parameters - Must all be in a block together - Camera has a FIXED ASPECT RATIO
-cap.set(cv2.CAP_PROP_FRAME_WIDTH, 800) # MAIN LOOP TIMES with MJPG (~). 1920p=60ms, 1280p=35ms, 800p=15ms, 640p=13ms
-cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 600)
-cap.set(cv2.CAP_PROP_FPS, 90) 
-
-
-# Get width in pixels - Should be what we set above
+# This width isn't right! USB defaults it to 320
 width = cap.get(cv2.CAP_PROP_FRAME_WIDTH)
-height = cap.get(cv2.CAP_PROP_FRAME_HEIGHT)
-print(f"width: {width}, height: {height}")
+print(f"width: {width} (wrong)")
 # Default
 if width == 0:
-    width = 1920
+    width = 160
 
 # Manually setting this to the USB default
-cameraCenter = width / 2
+cameraCenter = 160
 
-# 1 and 2 is working best - 4/20
-sensitivity = 1  # Defines the min/max duty cycle range or "steering aggresssivness"
-mode = 2
 
+steeringFactor = 3  # Defines the min/max duty cycle range or "steering aggresssivness"
 neutralDuty = 15  # Duty cycle in which the car goes straight
 p = float(10**2)  # Floating point to handle rounding using integer math instead of the slower round(num, 2)
 # Initialize throttle and steering PWM values
@@ -53,27 +49,14 @@ INPUT_PIN = 6      # Pin 31 ==> Read receiver PWM to change MUX signal
 FREQUENCY = 100  # FREQUENCY in Hz
 GPIO_CHIP = 0
 # Throttle control
-SIMULATION_TIME = 3.4   # s
-STARTING_SPEED = 2.0    # m/s
+SIMULATION_TIME = 5.0   # s
+STARTING_SPEED = 0.0    # m/s
 TARGET_SPEED = 20.1     # m/s - NEVER OVER 20.1
 MAX_SPEED = 20.1        # m/s - DO NOT CHANGE
-MAX_ACCELERATION = 0.050    # 5.4 m/s^2 = 0.054 m/ (10 ms)^2
+MAX_ACCELERATION = 0.01    # 5.4 m/s^2 = 0.054 m/ (10 ms)^2
 ACCELERATION_STEP_10MS = (MAX_ACCELERATION) / (MAX_SPEED / 5)
 STARTING_SPEED_DC = (5/MAX_SPEED) * STARTING_SPEED + 15.0   # Percent
 TARGET_SPEED_DC = (5/MAX_SPEED) * TARGET_SPEED + 15.0       # Percent
-
-# Ramp acceleration (want slower at beginning)
-accRamp = np.linspace(0.016, 0.011, int(SIMULATION_TIME // 0.008))
-accRamp = accRamp.tolist()
-
-# Data Collection
-COLLECT = False
-steerTimeArr = []
-steerDCArr = []
-steerDistanceToCenterArr = []
-throttleTimeArr = []
-throttleDCArr = []
-
 
 # Mutexes
 steering_lock = threading.Lock()
@@ -94,6 +77,7 @@ lgpio.tx_pwm(HANDLE, THROTTLE_PIN, FREQUENCY, 15.0)
 global stop_event
 stop_event = threading.Event()
 
+
 # Apply HSV thresholding for neon pink detection - Camera thread
 def get_mask(frame):
     hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
@@ -113,7 +97,7 @@ def get_mask(frame):
     return mask
 
 # Return PWM based on horizontal distance of line to camera centerline
-def get_duty_cycle(mask):
+def get_duty_cycle(mask, cameraCenter=160):
     # Find contours
     contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
 
@@ -127,12 +111,10 @@ def get_duty_cycle(mask):
             # print(f"center_x: {center_x}, should be ~160")
 
             # Dynamic steeringFactor
-            steerDistanceToCenterArr.append(center_x - cameraCenter)    # Pixels left (-) or right (+) of camera center
             ratioToCenter = (center_x - cameraCenter) / cameraCenter    # Ratio of steering relative to frame size (-1 to 1)
-
-                                                                # Sets the power that scales duty cycle 
-            steeringFactor = 5 * sensitivity * abs(ratioToCenter) ** (mode-1)         # Sets how aggressive vehicle steers based on how far the line is from the center
-            steerAmount = ratioToCenter * steeringFactor                # Sets max range -5 to 5 following a quadratic esk formula
+            # print(f"ratio to center: {ratioToCenter}\n")
+            steeringFactor = 5 * abs(ratioToCenter)
+            steerAmount = ratioToCenter * steeringFactor # should be -5 to 5 now
 
             # Rounding is faster through integer manipulation
             if steerAmount > 0:
@@ -143,11 +125,11 @@ def get_duty_cycle(mask):
 
 
             # Default is -5 to 5 + 15 = (10 to 20)%
-            # From neutral, approach 10% or 20% at a rate equal to the power defined in mode -> (DC = (5*x.*abs(x))+15) for quadratic
+            # print(f"Steer amount rounded: {steerAmountRounded}\n")
             duty_cycle = steerAmountRounded + neutralDuty
             
             # print(f"MAIN update steering dc: {duty_cycle}")
-            return duty_cycle
+            return duty_cycle, (center_x-cameraCenter) / 1000
 
     else:
         print("No contours. get_duty_cycle returning -1.")
@@ -231,14 +213,14 @@ def steering_pwm_thread():
         # Lock so steering_duty_cycle doesn't change during execution
         with steering_lock:
             lgpio.tx_pwm(HANDLE, STEERING_PIN, FREQUENCY, steering_duty_cycle)
-            steerTime = round(((time.time() - pwm_steer_start)), 3)
-            steerDCArr.append(steering_duty_cycle)
-            print(f"STEERING - Writing PWM: {round(steering_duty_cycle, 2)} at {steerTime * 1000} ms.") 
+            print(f"STEERING - Writing PWM: {round(steering_duty_cycle, 2)} at {round(time.time() - pwm_steer_start, 5)}")   
+            # print(f"Thread running with steering duty cycle: {steering_duty_cycle}") # Gonna print a lot
+            # print(f"Time for thread to send steering dc: {time.time() - pwm_steer_start}") # This is much faster than 10ms, so function is limited by time.sleep()
 
-
-        steerTimeArr.append(steerTime)
-        # STEERING PWM UPDATE RATE - don't go faster than camera 
-        time.sleep(0.010)  # Write duty cycle every 10 ms (100 Hz)
+        # STEERING PWM UPDATE RATE - limits is about 200 us (0.0002s) ==> 5000 Hz
+        # Usually about 70-150 us for calculations. 
+        # TODO: How often does steering_duty_cycle actually update?
+        time.sleep(0.01)  # Small delay to keep CPU usage low - write duty cycle every 10 ms (100 Hz)
     # Straighten out so we brake with straight wheels
     lgpio.tx_pwm(HANDLE, STEERING_PIN, FREQUENCY, 15.0)
     time.sleep(1.0)
@@ -268,29 +250,21 @@ def throttle_thread():
     print(f"Starting throttle {throttle_dc}")
     while not stop_event.is_set() and (time.time() - throttle_start_time < SIMULATION_TIME):
         # Comment this out for speed
-        throtTime = round(time.time() - throttle_start_time, 2)
-        print(f"THROTTLE - Writing PWM: {round(throttle_dc, 3)} at {throtTime} s.")
+        # print(f"THROTTLE - Writing PWM: {round(throttle_dc, 3)} at {round(time.time() - throttle_start_time, 2)}")
         lgpio.tx_pwm(HANDLE, THROTTLE_PIN, FREQUENCY, throttle_dc)
-        throttleTimeArr.append(throtTime)
-        throttleDCArr.append(throttle_dc)
         # If we have not reached TARGET_SPEED
         if (throttle_dc < TARGET_SPEED_DC):
-            try:
-                throttle_dc += accRamp[-1]
-                print(f"Accel Rate: {accRamp[-1]}")
-                accRamp.pop()
-            except:
-                break
+            throttle_dc += ACCELERATION_STEP_10MS
         else:
             throttle_dc = 15.0  # Brake for 3 seconds, then neutral
-            lgpio.tx_pwm(HANDLE, THROTTLE_PIN, FREQUENCY, 10.5)
+            lgpio.tx_pwm(HANDLE, THROTTLE_PIN, FREQUENCY, 12.0)
             print("Max speed hit. Braking.")
             print("4 - stop event")
             stop_event.set()
-            time.sleep(2.0)
+            time.sleep(3.0)
             lgpio.tx_pwm(HANDLE, THROTTLE_PIN, FREQUENCY, throttle_dc)
 
-        time.sleep(0.010)   # Aim to update at 100 Hz (0.01s)
+        time.sleep(0.009)   # Aim to update at 100 Hz (0.01s)
 
     print("3 - stop event")
 
@@ -299,10 +273,10 @@ def throttle_thread():
     if (throttle_dc > 15.0):
         throttle_dc = 15.0
         print("Time over. Braking.")
-        lgpio.tx_pwm(HANDLE, THROTTLE_PIN, FREQUENCY, 10.5)
-        time.sleep(2.0)
+        lgpio.tx_pwm(HANDLE, THROTTLE_PIN, FREQUENCY, 12.0)
+        time.sleep(3.0)
     lgpio.tx_pwm(HANDLE, THROTTLE_PIN, FREQUENCY, 15.0)
-    time.sleep(0.5)
+    time.sleep(2.0)
 
     # Give back manual control
     print("THREAD: Ending Throttle. Giving back control.")
@@ -319,6 +293,15 @@ def main():
     global stop_event
     stop_event.clear()
     global steering_duty_cycle
+
+    # V_STEADY = 20.5     # Max velocity (m/s)
+    # ACCEL = 10.25    # Max acceleration (m/s^2)
+    # D_TOTAL   = 82.0   # Total displacement (m)
+                                            #Kp         Ki         Kd  
+    steeringController = SteeringController(0.061388 , 0.682021 , 0.0)              
+    # throttleController = ThrottleController(1.0 , 1.0 , 1.0)
+
+    # velocityProfile = VelocityProfile(D_TOTAL, V_STEADY, ACCEL)
 
     '''
     throttle_dc = 15.0
@@ -359,17 +342,13 @@ def main():
     # Camera steering module
     try:
         while not stop_event.is_set():
-
-            # t0 = time.time()
-
             ret, frame = cap.read()
             if not ret:
                 print("Failed to open camera")
                 break
             
-
             # Define the region (change as needed) - top works best for sharp turns
-            region = "top"  # Options: "top (2/3)", "middle(1/3)", "bottom(2/3)"
+            region = "middle"  # Options: "top (2/3)", "middle(1/3)", "bottom(2/3)"
 
             # Define region boundaries
             if region == "top":
@@ -388,10 +367,12 @@ def main():
 
             mask = get_mask(frame_new)
 
+            new_duty_cycle, pixelsToCenter = get_duty_cycle(mask)
 
-            new_duty_cycle = get_duty_cycle(mask)
-
-            # Time end
+            print(f"\nDistance to center: {pixelsToCenter}\n")
+            
+            # pixelsToCenter should be in meters
+            steeringController.update_pwm(0, pixelsToCenter)
 
             if new_duty_cycle < 0:
                 # Kill everything - kills threads too
@@ -401,7 +382,7 @@ def main():
                 print("1 - stop event")
                 stop_event.set()
 
-                lgpio.tx_pwm(HANDLE, THROTTLE_PIN, FREQUENCY, 10.5)
+                lgpio.tx_pwm(HANDLE, THROTTLE_PIN, FREQUENCY, 12.0)
                 time.sleep(0.5)
                 lgpio.tx_pwm(HANDLE, THROTTLE_PIN, FREQUENCY, 15.0)
                 lgpio.tx_pwm(HANDLE, STEERING_PIN, FREQUENCY, 15.0)
@@ -415,7 +396,7 @@ def main():
                 break
             
             with steering_lock:
-                steering_duty_cycle = new_duty_cycle    # Should update the global variable for the thread
+                steering_duty_cycle = steeringController.pwm    # Should update the global variable for the thread
 
             # Do we want a delay in here?
 
@@ -423,9 +404,8 @@ def main():
 
             # Where is the 90 FPS limit coming from in code?
             # If we print the time here I bet it operates more often than
-            # time.sleep(0.005) 
+            time.sleep(0.005) 
 
-            # print(f"Main loop took {time.time() - t0} seconds\n")
 
         
     except KeyboardInterrupt:
@@ -444,7 +424,7 @@ def main():
 
         # BRAKE
         if (throttle_dc > 15.0):
-            lgpio.tx_pwm(HANDLE, THROTTLE_PIN, FREQUENCY, 10.5)
+            lgpio.tx_pwm(HANDLE, THROTTLE_PIN, FREQUENCY, 11.0)
             time.sleep(1.0)
         # NEUTRAL
         lgpio.tx_pwm(HANDLE, THROTTLE_PIN, FREQUENCY, 15.0)
@@ -467,15 +447,6 @@ def main():
         # Release camera
         cap.release()
 
-        print(f"Average acceleration: {np.average(accRamp)}")
-
-        # Copy these into arrays on local machine to visualize data 
-        if COLLECT:
-            print(f"Steer DC:\n\t{steerDCArr}\n\n")
-            print(f"Throttle DC:\n\t{throttleDCArr}\n\n")
-            print(f"Distance to Center:\n\t{steerDistanceToCenterArr}")
-
-        
         
         return
 
