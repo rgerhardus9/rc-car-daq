@@ -130,7 +130,7 @@ def get_duty_cycle(mask):
 
             # CHECK THIS
                                                                 # Sets the power that scales duty cycle 
-            steeringFactor = 5 * sensitivity * abs(ratioToCenter) ** (mode-1)         # Sets how aggressive vehicle steers based on how far the line is from the center
+            steeringFactor = 5 * abs(ratioToCenter) ** (mode-1)         # Sets how aggressive vehicle steers based on how far the line is from the center
             steerAmount = ratioToCenter * steeringFactor                # Sets max range -5 to 5 following a quadratic esk formula
 
             # Rounding is faster through integer manipulation
