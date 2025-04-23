@@ -22,7 +22,7 @@ scaling_factor = 0.6
 
 # Sensor settings - IMU update interval == dt
 accel_noise_std = 3.0   # Actual Std dev of the IMU
-gps_noise_std = 3.0     # TODO: Get std dev of GPS velocity
+gps_noise_std = 0.5     # TODO: Get std dev of GPS velocity
 gps_update_interval = int(1 / (50*dt))  # 10 Hz
 wheel_speed_update_interval = int(1 / (10*dt))  # 50 Hz
 
@@ -59,7 +59,7 @@ def compute_safe_throttle(wheel_speed, est_vehicle_speed, raw_throttle,
                           slip_threshold=0.15, scaling_factor=0.6):
     print(f"Wheel speed: {wheel_speed}\tspeed read in: {est_vehicle_speed}\traw throttle: {raw_throttle}")
     epsilon = 0.01
-    slip = (wheel_speed - est_vehicle_speed) / max(wheel_speed, epsilon)
+    slip = abs(wheel_speed - est_vehicle_speed) / max(wheel_speed, epsilon)
     slip_ratios.append(slip)
     if slip > slip_threshold:
         return raw_throttle * scaling_factor

@@ -85,7 +85,7 @@ def read_pwm_duty_cycle(chip, INPUT_PIN, duration = 0.3):   # 0.3s to calculate 
             #print(f"DC: {dc}")
 
             # Change MUX signal or continue - do this in or out of function?
-            if (dc < 14.0 or dc > 16.0):
+            if (dc < 13.0):
                 lgpio.gpio_write(chip, SELECT_PIN, 0)     # Select signal to LOW = PWM transmitter signal
                 return 0
             else:
