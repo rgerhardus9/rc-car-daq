@@ -1,6 +1,9 @@
 import numpy as np
 import matplotlib.pyplot as plt
 
+# Simulation to show the angle deviation when taking a turn at max speed without tipping
+
+
 # Angle lost based on turn radius (MAX SPEED)
 # Distance slipped straight
 d = 4.0  # meters

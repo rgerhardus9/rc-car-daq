@@ -289,7 +289,7 @@ def throttle_thread():
         if (bump):
             # print(f"THROTTLE - Writing PWM: {round(throttle_dc, 3)} at {throtTime} s.")
             lgpio.tx_pwm(HANDLE, THROTTLE_PIN, FREQUENCY, throttle_dc)
-            time.sleep(0.200)   # Aim to update at 100 Hz (0.01s)
+            time.sleep(0.200) 
             bump = False
         else:
             lgpio.tx_pwm(HANDLE, THROTTLE_PIN, FREQUENCY, 15.0)
