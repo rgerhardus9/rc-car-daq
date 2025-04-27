@@ -19,3 +19,5 @@ The `Sensor Testing` directory contains code related to the testing of the vario
 The `GUI_app.mlapp` file contains a MATLAB App that, when run in parallel with `DAQ/receive.py`, allows for basic live data transmission.
 
 The `Pi Testing` folder contains code for testing the software/hardware interface.
+
+The `Car Testing` folder contains the generation of PWM signals, models and code for control systems, and the implementation of line-following with the camera.
