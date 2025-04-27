@@ -1,14 +1,3 @@
-'''
-Kalman Filter - Get velocity from GPS velocity data and IMU acceleration data
-TODO:
-    - Interrupts for when we call the function?
-    - process_var = 0.1
-    - gps_var = 2.0
-    - Make test data
-    - Read IMU and GPS
-'''
-
-
 import numpy as np
 
 class KalmanFilter:

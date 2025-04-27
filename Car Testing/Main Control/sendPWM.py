@@ -1,6 +1,6 @@
 #! /usr/bin/env python
 
-# Working code to foloow line with manual throttle control as of 3/11
+# Working code to follow line with manual throttle control
 
 import lgpio
 import time

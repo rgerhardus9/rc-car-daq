@@ -1,4 +1,5 @@
 #! /usr/bin/env python
+# Script to generate and test PWM signals from Pi
 
 import lgpio
 import time
