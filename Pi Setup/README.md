@@ -25,7 +25,7 @@ Raspberry Pi OS (other) > Raspberry Pi OS Lite (64-bit)
 
 2. To connect to the Mines network, register the
 **Raspberry Pi**'s **MAC address** at https://netreg.mines.edu/
-	- The **MAC address** may be found by running `ethtool -P eth0`
+	- The **MAC address** may be found by running `ethtool -P wth0`
 
 ## Finish setup
 
